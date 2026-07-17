@@ -10,6 +10,26 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-17 — Note [D-004]: the conda environment is now a one-command setup
+
+[D-001]'s checklist step 1 ("create/point `DML_CONDA_ENV` at a torch ≥ 2.0
+env") is now concrete: run `bash tools/setup_env.sh` once on a Wulver login
+node. It loads Miniforge3, creates a prefix env at `$HOME/envs/dml-torch`
+(python 3.11), and pip-installs `requirements.txt` — the PyPI torch/torchvision
+wheels bundle the CUDA 12 runtime, so no cluster CUDA module is involved and
+the GPU nodes' driver is all that's needed. All seven sbatch scripts activate
+that same path by default; exporting `DML_CONDA_ENV=<other path>` before both
+setup and submission points everything at a different env (e.g. to reuse an
+existing torch env from the KD project).
+Two expectations to save head-scratching: on the login node the script's sanity
+check prints `cuda available: False` — login nodes have no GPU, that is normal —
+and the script's header gives a one-line `srun --qos=debug` command that
+verifies CUDA on an actual A100 before the first real submission. After setup:
+`python tools/stage_data.py cifar100`, optionally `pytest tests/` (~2 min,
+CPU-only), then submit R1.
+
+---
+
 ## 2026-07-17 — Note [D-003]: suite runs under the department allocation (dept_dms / high_dept_dms+)
 
 All seven suite scripts now submit with `--account=dept_dms` and
