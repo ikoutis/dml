@@ -11,9 +11,10 @@
 #     from the checkpoint — bit-identical state, including RNG streams and
 #     the shuffle generator.
 # A run longer than one 72 h window therefore completes across as many
-# windows as it needs, with no manual action. (Preemption under qos=low is
-# separate: SLURM requeues automatically via --requeue, and the run resumes
-# from its last periodic checkpoint — every 10 epochs.)
+# windows as it needs, with no manual action. (Scheduler-initiated requeues
+# — node failure, admin drain; the suite's high_dept_dms+ QOS is not
+# preempted — are separate: SLURM requeues automatically via --requeue, and
+# the run resumes from its last periodic checkpoint — every 10 epochs.)
 #
 # Manual recovery after anything else (node failure, cancelled array, ...):
 #   IDS=$(python tools/incomplete.py <exp>)          # e.g. m1

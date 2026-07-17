@@ -24,8 +24,8 @@
 #SBATCH --output=results/logs/m6_%A_%a.log
 #SBATCH --error=results/logs/m6_%A_%a.err
 #SBATCH --partition=gpu
-#SBATCH --qos=low
-#SBATCH --account=ikoutis
+#SBATCH --qos=high_dept_dms+
+#SBATCH --account=dept_dms
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8

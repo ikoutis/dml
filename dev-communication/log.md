@@ -10,6 +10,23 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-17 — Note [D-003]: suite runs under the department allocation (dept_dms / high_dept_dms+)
+
+All seven suite scripts now submit with `--account=dept_dms` and
+`--qos=high_dept_dms+` (the department's priority QOS) instead of the personal
+account with `qos=low`. Two consequences worth recording. First, scheduling:
+the priority QOS should start the big arrays (R1's and M1's 60 tasks) much
+faster than `low` would. Second, a correction of scope to [D-002]: its remarks
+about preemption applied to the preemptable `low` QOS; under `high_dept_dms+`
+jobs are not preempted, so the `--requeue` + periodic-checkpoint machinery now
+covers only node failures and admin drains, while the USR1 self-requeue remains
+the mechanism that carries runs across the 72 h wall. Nothing about recovery
+changes: `tools/incomplete.py` works the same, and `sbatch --account/--qos`
+flags on the command line can still override the in-script values if a batch
+ever needs to fall back to another allocation.
+
+---
+
 ## 2026-07-17 — Note [D-002]: 72-hour-wall resilience — self-requeueing arrays and one-line recovery
 
 *(Supersedes the resilience paragraph of [D-001]; no reply needed.)*
