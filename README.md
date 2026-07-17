@@ -85,6 +85,19 @@ sbatch slurm/m1_headline_k8.sbatch           # M1: matched vs dense at K=8
 #      m4_rotation, m6_weight_signal — see experiments.md §6 for the order
 ```
 
+All scripts run as SLURM arrays with the 72 h Wulver maximum and survive it:
+30 min before the wall the trainer checkpoints and the task requeues itself,
+resuming bit-identically (`slurm/requeue_lib.sh`); preempted `qos=low` tasks
+resume from their last periodic checkpoint (every 10 epochs). To check
+completion or recover from anything else, resubmit exactly the unfinished
+array indices:
+
+```bash
+python tools/incomplete.py m1 --list                      # per-index status
+IDS=$(python tools/incomplete.py m1)                      # e.g. "7,13,40-44"
+[ -n "$IDS" ] && sbatch --array=$IDS slurm/m1_headline_k8.sbatch
+```
+
 ## Analysis
 
 ```bash

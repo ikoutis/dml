@@ -159,7 +159,8 @@ general), with the ledger in the CSVs rather than asserted.
 | Seeds | 5 per cell (WRN-heavy cells may gate at 3 — §6); seed fixes init AND batch order, shared across arms | the paper reports single runs; KD standard is 20 (cheaper models) |
 | Ensemble metric | argmax of mean posterior over the cohort | reporting only, never a training signal (except in the DML_e arm, where it is the point) |
 | Workhorse cohort | K=8 | at K=2 all coupled arms coincide; K ≥ 6 is where matching bites (KD ideas.md) |
-| Reproducibility | one process per run; `--run_tag` (= log entry id) stamped into run_id and CSVs; checkpoint/resume every 25 epochs, `--requeue`-safe | KD C-001/C-002 conventions |
+| Reproducibility & resilience | one process per run; `--run_tag` (= log entry id) stamped into run_id and CSVs; checkpoint/resume every 10 epochs (incl. all RNG streams and the shuffle generator) | KD C-001/C-002 conventions |
+| Wulver 72 h wall | every script requests the 72 h max + `--signal=B:USR1@1800`: 30 min before the wall the trainer checkpoints at the end of the epoch in flight and the script requeues its own array task, which resumes bit-identically — runs longer than one window complete unattended. Preemption (`qos=low`, `--requeue`) resumes from the last periodic checkpoint. Anything else: `sbatch --array=$(python tools/incomplete.py <exp>) slurm/<script>` resubmits exactly the unfinished indices | [D-002] |
 
 Runner: `python -m src.run_experiment` (see `--help`); one run = one (cohort, arm,
 seed) cell producing `{run_id}_metrics.csv` (one row/epoch) and
@@ -371,6 +372,10 @@ At 3 seeds everything scales by 0.6 (~1000 GPU-h). Recommended sequence:
 3. **M1** — every headline claim lives here; M2/M5 alongside (same cell, cheap).
 4. **M3**, then **M4/M6** once M1's hetero cells look sane.
 5. M7 as campaign 2, informed by everything above.
+
+Completion check per experiment: `python tools/incomplete.py <exp> --list` shows
+every array index's last logged epoch; the bare command prints the `--array`
+expression of unfinished indices for resubmission (empty when done).
 
 ## 7. Mapping to the original paper
 

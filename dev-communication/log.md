@@ -10,6 +10,49 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-17 — Note [D-002]: 72-hour-wall resilience — self-requeueing arrays and one-line recovery
+
+*(Supersedes the resilience paragraph of [D-001]; no reply needed.)*
+
+Wulver caps every job at 72 hours, and our cost estimates carry ±2× uncertainty —
+so a WRN-heavy M1/M4/M6 task could plausibly outlive its window. The suite now
+survives that without anyone watching:
+
+1. **Self-requeue across the wall.** Every script requests the full 72 h and
+   `--signal=B:USR1@1800`. Thirty minutes before the wall, SLURM signals the batch
+   shell; `slurm/requeue_lib.sh` forwards it to the trainer, which finishes the
+   epoch in flight, writes a checkpoint (models, optimizers, schedulers, every RNG
+   stream including the data-loader shuffle generator, matcher recency state,
+   communication counters), and exits with code 85; the script then
+   `scontrol requeue`s its own array task. The requeued task re-enters the same
+   script with `--resume` and continues bit-identically. A run needing 100 GPU-hours
+   completes across two windows with zero manual action. The mechanism is
+   unit-tested end-to-end (`tests/test_trainer.py::TestPreemption`: signal mid-run
+   → checkpoint at epoch boundary → resumed run completes with no duplicate or
+   missing CSV rows).
+2. **Tighter periodic checkpoints.** `--checkpoint_every` dropped from 25 to 10
+   epochs, so a hard preemption (`qos=low` + `--requeue`, which SLURM handles by
+   itself) loses at most ~1 h of WRN-cohort work.
+3. **Recovery is an array expression, not a hunt.** `tools/incomplete.py` mirrors
+   each script's array map, recomputes every index's run_id, and checks its metrics
+   CSV against the target epoch. Recovery after anything the mechanisms above
+   didn't catch — cancelled array, node failure, a requeue that never ran — is:
+
+       IDS=$(python tools/incomplete.py m1)
+       [ -n "$IDS" ] && sbatch --array=$IDS slurm/m1_headline_k8.sbatch
+
+   Only the unfinished indices rerun, and each resumes from its checkpoint rather
+   than restarting. `--list` prints a per-index status table (run_id + last logged
+   epoch). A new test (`tests/test_suite_grids.py`) pins the tool's grids to the
+   sbatch array sizes and asserts run_id uniqueness across all 215 runs of the
+   suite, so the grids cannot silently drift from the scripts.
+
+One habit this enables: after submitting a batch, `tools/incomplete.py <exp>` is
+also the completion check — an empty output means the experiment is done and ready
+for `analysis/aggregate.py`.
+
+---
+
 ## 2026-07-17 — Task [D-001]: the reduced-communication DML program — design and harness are in; smoke-test, calibrate, then launch R1
 
 **To:** Ioannis (and whoever picks up the cluster work). This entry announces the

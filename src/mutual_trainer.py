@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import os
 import random
+import signal
 import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -89,6 +90,12 @@ class TrainerConfig:
     checkpoint_every: int = 25
     resume: bool = False
     verbose: bool = False
+    # SLURM wall-clock resilience: when True, SIGUSR1 (sent by
+    # `#SBATCH --signal=B:USR1@...` ahead of the 72 h wall and forwarded by
+    # the sbatch script) makes the trainer checkpoint at the end of the
+    # current epoch and stop with .preempted = True, so the CLI can exit 85
+    # and the script can requeue the array task.
+    trap_usr1: bool = False
     static_row: Dict = field(default_factory=dict)  # run-identity CSV columns
 
 
@@ -181,6 +188,8 @@ class MutualTrainer:
         self.matches_csv = CsvWriter(base + "_matches.csv")
         self.ckpt_path = base + "_ckpt.pt"
         self.start_epoch = 0
+        self._preempt_requested = False
+        self.preempted = False
 
     # ------------------------------------------------------------------
     # Matching refresh
@@ -395,6 +404,10 @@ class MutualTrainer:
     # ------------------------------------------------------------------
     def train(self) -> Dict:
         cfg = self.cfg
+        if cfg.trap_usr1 and hasattr(signal, "SIGUSR1"):
+            signal.signal(signal.SIGUSR1,
+                          lambda signum, frame: setattr(
+                              self, "_preempt_requested", True))
         if cfg.resume and os.path.exists(self.ckpt_path):
             self._load_checkpoint()
         if self.start_epoch == 0:
@@ -471,6 +484,17 @@ class MutualTrainer:
             if (epoch + 1) % cfg.checkpoint_every == 0 or \
                     epoch == cfg.epochs - 1:
                 self._save_checkpoint(epoch)
+
+            if self._preempt_requested:
+                # Wall clock approaching (SIGUSR1): make the state on disk
+                # complete for this epoch, then hand control back so the
+                # SLURM script can requeue the array task; the requeued run
+                # resumes from exactly here via --resume.
+                self._save_checkpoint(epoch)
+                self.preempted = True
+                print(f"PREEMPT | {cfg.run_id} | checkpointed at epoch "
+                      f"{epoch}; stopping for requeue", flush=True)
+                break
 
         self.metrics_csv.close()
         self.matches_csv.close()

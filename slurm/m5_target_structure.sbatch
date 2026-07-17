@@ -27,7 +27,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:a100_10g:1
-#SBATCH --time=24:00:00
+#SBATCH --time=72:00:00
+#SBATCH --signal=B:USR1@1800
 #SBATCH --requeue
 #SBATCH --open-mode=append
 #SBATCH --array=0-4
@@ -39,6 +40,7 @@ set +u
 conda activate "${DML_CONDA_ENV:-$HOME/envs/torch-cuda}"
 set -u
 cd "$SLURM_SUBMIT_DIR"
+source slurm/requeue_lib.sh
 
 test -d data/cifar-100-python || {
     echo "STAGE ERROR: CIFAR-100 not found under data/." >&2
@@ -49,11 +51,11 @@ test -d data/cifar-100-python || {
 SEED=$((SLURM_ARRAY_TASK_ID + 1))
 OUT=results/suite/m5_target_structure
 mkdir -p results/logs "$OUT"
-HARDEN="--run_tag d001 --checkpoint_every 25 --resume"
+HARDEN="--run_tag d001 --checkpoint_every 10 --resume"
 
 echo "=== M5 | dmle seed=$SEED | job=$SLURM_JOB_ID | $(date) ==="
 # shellcheck disable=SC2086
-python -m src.run_experiment \
+run_with_requeue python -m src.run_experiment \
     --dataset cifar100 --data_dir data \
     --cohort resnet32:8 --arm dml --target ensemble \
     --seed "$SEED" --output_dir "$OUT" \

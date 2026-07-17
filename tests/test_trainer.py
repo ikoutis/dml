@@ -257,6 +257,42 @@ class TestEndToEnd:
             make_trainer(tmp_path, K=3, arm="matched")
 
 
+class TestPreemption:
+    """The 72 h wall-clock path: SIGUSR1 -> finish the epoch in flight,
+    checkpoint, stop with .preempted = True; a --resume run completes."""
+
+    def test_usr1_checkpoints_stops_and_resumes(self, tmp_path):
+        import signal as sig
+
+        kw = dict(K=4, arm="matched", match_weight="disagreement",
+                  checkpoint_every=100)
+        trainer, _ = make_trainer(tmp_path, epochs=5, trap_usr1=True, **kw)
+        orig = trainer._train_one_epoch
+
+        def wrapped(epoch):
+            out = orig(epoch)
+            if epoch == 1:  # the signal lands mid-run
+                sig.raise_signal(sig.SIGUSR1)
+            return out
+
+        trainer._train_one_epoch = wrapped
+        trainer.train()
+        assert trainer.preempted
+        assert os.path.exists(os.path.join(str(tmp_path),
+                                           "test_run_ckpt.pt"))
+        with open(os.path.join(str(tmp_path), "test_run_metrics.csv")) as fh:
+            rows = list(csv.DictReader(fh))
+        assert [r["epoch"] for r in rows] == ["0", "1"]
+
+        trainer2, _ = make_trainer(tmp_path, epochs=5, resume=True, **kw)
+        trainer2.train()
+        assert trainer2.start_epoch == 2
+        assert not trainer2.preempted
+        with open(os.path.join(str(tmp_path), "test_run_metrics.csv")) as fh:
+            rows = list(csv.DictReader(fh))
+        assert [r["epoch"] for r in rows] == ["0", "1", "2", "3", "4"]
+
+
 def test_parse_k_anneal():
     assert parse_k_anneal("") == []
     assert parse_k_anneal("120:1,0:3,60:2") == [(0, 3), (60, 2), (120, 1)]

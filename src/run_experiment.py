@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import random
+import sys
 import time
 
 import numpy as np
@@ -227,7 +228,8 @@ def main() -> None:
         peel_weighting=args.peel_weighting, graph=args.graph,
         graph_seed=args.graph_seed, seed=args.seed, device=device,
         output_dir=args.output_dir, checkpoint_every=args.checkpoint_every,
-        resume=args.resume, verbose=args.verbose, static_row=static_row)
+        resume=args.resume, verbose=args.verbose, trap_usr1=True,
+        static_row=static_row)
 
     if args.verbose:
         print(f"[*] run_id: {run_id}")
@@ -239,6 +241,11 @@ def main() -> None:
                             test_loader, n_cls, info["n_valid"])
     final = trainer.train()
     elapsed = time.time() - tic
+
+    if trainer.preempted:
+        # Exit 85 tells the sbatch script to `scontrol requeue` this array
+        # task; the requeued run resumes from the checkpoint just written.
+        sys.exit(85)
 
     print(f"RESULT | {run_id} | avg_test_acc={final.get('avg_test_acc', float('nan')):.6f} "
           f"| ensemble_test_acc={final.get('ensemble_test_acc', float('nan')):.6f} "
