@@ -14,10 +14,13 @@ section at the top; for a reply, cite the entry you are answering.
 
 [D-001]'s checklist step 1 ("create/point `DML_CONDA_ENV` at a torch ≥ 2.0
 env") is now concrete: run `bash tools/setup_env.sh` once on a Wulver login
-node. It loads Miniforge3, creates a prefix env at `$HOME/envs/dml-torch`
-(python 3.11), and pip-installs `requirements.txt` — the PyPI torch/torchvision
-wheels bundle the CUDA 12 runtime, so no cluster CUDA module is involved and
-the GPU nodes' driver is all that's needed. All seven sbatch scripts activate
+node. It loads Miniforge3, creates a prefix env at
+`/project/ikoutis/conda_env/dml-torch` *(updated same day, per Ioannis: the env
+lives on project storage — off the `$HOME` quota, shareable within the group —
+not under `$HOME/envs` as this entry first said)*, python 3.11, and
+pip-installs `requirements.txt` — the PyPI torch/torchvision wheels bundle the
+CUDA 12 runtime, so no cluster CUDA module is involved and the GPU nodes'
+driver is all that's needed. All seven sbatch scripts activate
 that same path by default; exporting `DML_CONDA_ENV=<other path>` before both
 setup and submission points everything at a different env (e.g. to reuse an
 existing torch env from the KD project).

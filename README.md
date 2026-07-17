@@ -52,9 +52,9 @@ pip install -r requirements.txt      # torch >= 2.0, torchvision, numpy, scipy, 
 pytest tests/                        # no GPU or dataset needed
 ```
 
-Wulver (once, on a login node — creates `$HOME/envs/dml-torch` and installs
-everything; the sbatch scripts activate that path by default, `DML_CONDA_ENV`
-overrides it):
+Wulver (once, on a login node — creates `/project/ikoutis/conda_env/dml-torch`
+and installs everything; the sbatch scripts activate that path by default,
+`DML_CONDA_ENV` overrides it):
 
 ```bash
 bash tools/setup_env.sh

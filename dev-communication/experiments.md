@@ -162,7 +162,7 @@ general), with the ledger in the CSVs rather than asserted.
 | Reproducibility & resilience | one process per run; `--run_tag` (= log entry id) stamped into run_id and CSVs; checkpoint/resume every 10 epochs (incl. all RNG streams and the shuffle generator) | KD C-001/C-002 conventions |
 | Wulver 72 h wall | every script requests the 72 h max + `--signal=B:USR1@1800`: 30 min before the wall the trainer checkpoints at the end of the epoch in flight and the script requeues its own array task, which resumes bit-identically — runs longer than one window complete unattended. Scheduler requeues (node failure; the priority QOS is not preempted) resume from the last periodic checkpoint. Anything else: `sbatch --array=$(python tools/incomplete.py <exp>) slurm/<script>` resubmits exactly the unfinished indices | [D-002] |
 | Allocation | `--account=dept_dms`, `--qos=high_dept_dms+` (the department's priority QOS) on the gpu partition | [D-003] |
-| Environment | `bash tools/setup_env.sh` on a login node creates `$HOME/envs/dml-torch` (python 3.11 + requirements.txt; PyPI torch wheels bundle the CUDA 12 runtime); the sbatch scripts activate that path, `DML_CONDA_ENV` overrides | [D-004] |
+| Environment | `bash tools/setup_env.sh` on a login node creates `/project/ikoutis/conda_env/dml-torch` (python 3.11 + requirements.txt; PyPI torch wheels bundle the CUDA 12 runtime); the sbatch scripts activate that path, `DML_CONDA_ENV` overrides | [D-004] |
 
 Runner: `python -m src.run_experiment` (see `--help`); one run = one (cohort, arm,
 seed) cell producing `{run_id}_metrics.csv` (one row/epoch) and

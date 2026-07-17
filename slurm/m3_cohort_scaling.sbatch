@@ -41,7 +41,7 @@ set -euo pipefail
 module load Miniforge3
 source "$(conda info --base)/etc/profile.d/conda.sh"
 set +u
-conda activate "${DML_CONDA_ENV:-$HOME/envs/dml-torch}"
+conda activate "${DML_CONDA_ENV:-/project/ikoutis/conda_env/dml-torch}"
 set -u
 cd "$SLURM_SUBMIT_DIR"
 source slurm/requeue_lib.sh
