@@ -10,6 +10,68 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-18 — Claude: first R1 outcomes — the gate is provisionally PASSING (re: [D-001], partial batch)
+
+Read from the 20/60 completed R1 runs pushed today (all resnet32:2 and
+mobilenet+resnet32 cells, one mobilenet:2 seed; the rest mid-training or queued —
+`tools/incomplete.py r1` currently returns `19-28,30-59`). Three findings, then the
+recalibrated costs.
+
+**1. The gate table so far.** Final-epoch test accuracy, mean±std over completed
+seeds, against the paper's Table 2:
+
+| Cell | Arch | Ours indep | Ours DML | Ours Δ | Paper indep | Paper Δ |
+|---|---|---|---|---|---|---|
+| resnet32:2 | resnet32 | 69.56±0.33 | 70.95±0.26 | **+1.39** | 68.99 | +2.20/+1.76 |
+| mob+r32 | mobilenet | 64.55±0.29 | 65.86±1.09 (n=4) | **+1.31** | 73.65 | +2.48 |
+| mob+r32 | resnet32 | 69.55±0.46 | 70.56±0.60 (n=4) | **+1.01** | 68.99 | +2.11 |
+| wrn+r32 (in flight, ep 133) | wrn28x10 | 78.76 (1 seed) | — | — | 78.69 | +0.27 |
+
+Every DML−Independent delta is positive with tight seed variance, at roughly half
+to two-thirds of the paper's magnitudes — same sign, same ballpark, and note the
+paper's deltas are single-run numbers while ours carry error bars (the unofficial
+implementation this repo started from reported +1.20 for the resnet pair; we get
++1.39±0.4-ish, right between it and the paper). Absolute calibration is
+remarkable where it matters: ResNet-32 independent lands 0.6 pp ABOVE the paper
+despite our 45k train split, and the one near-final WRN-28-10 independent reads
+78.76 vs the paper's 78.69. I call the gate provisionally passed; the WRN cells
+will finish the table.
+
+**2. The one discrepancy, flagged honestly: MobileNet absolutes.** Our MobileNet
+sits ~9 pp below the paper (64.6 vs 73.65). The paper never specifies its CIFAR
+MobileNet adaptation, and 73.65 is high for a standard MobileNet-v1/32×32 port
+(ours is the usual stride-1-stem variant at the paper's own 3.3M param count,
+learning-rate recipe identical to the other nets). Every internal comparison is
+unaffected — all arms share the architecture — but Table-2-style absolute
+comparisons for MobileNet rows should carry this caveat in any writeup. Not a
+blocker; worth one line in the paper.
+
+**3. A free mechanism observation, already on-message for H3.** At K=2, dense
+coupling raises individuals but drains the ensemble: resnet32:2 DML individuals
+beat Independent by +1.39 while the DML *ensemble* trails the Independent
+ensemble (72.85 vs 73.15), with exactly the diversity signature the theory
+expects — pairwise error correlation 0.68 vs 0.55, ensemble−individual gap 1.90
+vs 3.59, disagreement 0.22 vs 0.31. The mimicry benefit is real and it is paid
+for out of diversity. This is the currency the matched arms are designed to
+spend more carefully; M1/M2 will show whether they do.
+
+**4. Costs recalibrated from measured `epoch_seconds`** (median): resnet32:2
+18.9 s/ep (~1.0 h/run), mobilenet pairs ~15 s/ep (~0.8 h), wrn+r32 34.1 s/ep
+(~1.9 h — my estimate said 6–10 h, so 3–5× cheaper). Implied per-model rates
+(r32 ≈ 9.5, mobilenet ≈ 7, wrn ≈ 24.5 s/ep) project: resnet32:8 ≈ 4.2 h/run,
+hetero 4W+4R ≈ 7.6 h/run, K=12 ≈ 6.3 h/run. Suite totals drop roughly in half
+vs experiments.md §6: R1 ≈ 80, M1 ≈ 320, M2 ≈ 85, M3 ≈ 90, M4 ≈ 115, M5 ≈ 20,
+M6 ≈ 180 — **≈ 890 GPU-h for everything at 5 seeds**. No task is anywhere near
+the 72 h wall; the self-requeue machinery is insurance, not a dependency.
+
+**Verdict / actions:** M1 (already submitted) proceeds with confidence; nothing
+to cancel, nothing to change. When R1 completes: `tools/incomplete.py r1` should
+print nothing, then the full six-row gate table goes in a follow-up reply. The
+epoch-0 matches.csv randomness check from the [D-001] list applies to M1's
+matched arms once those start landing.
+
+---
+
 ## 2026-07-17 — Note [D-005]: allocation reverted to ikoutis / qos=low
 
 The switch to the department allocation ([D-003]) is rolled back per Ioannis:
