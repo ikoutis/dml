@@ -20,8 +20,8 @@
 #SBATCH --output=results/logs/m5_%A_%a.log
 #SBATCH --error=results/logs/m5_%A_%a.err
 #SBATCH --partition=gpu
-#SBATCH --qos=high_dept_dms+
-#SBATCH --account=dept_dms
+#SBATCH --qos=low
+#SBATCH --account=ikoutis
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8

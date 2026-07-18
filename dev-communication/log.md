@@ -10,6 +10,22 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-17 — Note [D-005]: allocation reverted to ikoutis / qos=low
+
+The switch to the department allocation ([D-003]) is rolled back per Ioannis:
+all seven suite scripts submit with `--account=ikoutis` and `--qos=low` again.
+With `low` being preemptable, [D-002]'s original preemption story applies as
+written — preempted tasks are requeued by SLURM automatically (`--requeue`)
+and resume from their last periodic checkpoint (every 10 epochs), while the
+USR1 self-requeue continues to carry runs across the 72 h wall. Nothing else
+changes: env, data staging, recovery via `tools/incomplete.py`, and the debug
+QOS for smoke runs (via `srun/sbatch --qos=debug` command-line overrides) all
+work as before. If the department allocation becomes usable later, no code
+needs to change — `sbatch --account=dept_dms --qos=<qos>` on the command line
+overrides the in-script values per submission.
+
+---
+
 ## 2026-07-17 — Note [D-004]: the conda environment is now a one-command setup
 
 [D-001]'s checklist step 1 ("create/point `DML_CONDA_ENV` at a torch ≥ 2.0
