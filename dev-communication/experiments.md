@@ -353,7 +353,10 @@ and batch order across arms) enables paired comparisons as a secondary analysis.
 ## 6. Cost and launch order
 
 Estimates for A100-class GPUs, 200 epochs, batch 64 (±2×; R1's first completions
-calibrate — each run logs `epoch_seconds`):
+calibrate — each run logs `epoch_seconds`). *Measured 2026-07-18 from R1's first
+batch (see the log reply to [D-001]): per-model ≈ 9.5 s/ep (ResNet-32), 7
+(MobileNet), 24.5 (WRN-28-10) — the table below runs ~2× high; measured suite
+total ≈ 890 GPU-h at 5 seeds.*
 
 | Exp | Runs | GPU-h/run (est.) | Total (est.) | Priority |
 |-----|------|------------------|--------------|----------|
