@@ -19,3 +19,7 @@ wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0001_d001,d001,4,0,0,4,wrn28x10,resn
 wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0001_d001,d001,4,0,1,6,wrn28x10,resnet32,0.780800,0.780800,disagreement,exact,1
 wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0001_d001,d001,4,0,2,7,wrn28x10,resnet32,0.749400,0.749400,disagreement,exact,1
 wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0001_d001,d001,4,0,3,5,wrn28x10,resnet32,0.635200,0.635200,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0001_d001,d001,5,0,0,7,wrn28x10,resnet32,0.676400,0.676400,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0001_d001,d001,5,0,1,6,wrn28x10,resnet32,0.603800,0.603800,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0001_d001,d001,5,0,2,5,wrn28x10,resnet32,0.651600,0.651600,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0001_d001,d001,5,0,3,4,wrn28x10,resnet32,0.655000,0.655000,disagreement,exact,1
