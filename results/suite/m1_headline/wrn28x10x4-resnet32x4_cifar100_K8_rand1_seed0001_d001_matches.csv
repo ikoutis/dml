@@ -127,3 +127,7 @@ wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0001_d001,d001,31,0,0,1,wrn28x10,wrn
 wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0001_d001,d001,31,0,2,4,wrn28x10,resnet32,0.863137,0.863137,random,exact,1
 wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0001_d001,d001,31,0,3,6,wrn28x10,resnet32,0.388368,0.388368,random,exact,1
 wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0001_d001,d001,31,0,5,7,resnet32,resnet32,0.790577,0.790577,random,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0001_d001,d001,32,0,0,6,wrn28x10,resnet32,0.311684,0.311684,random,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0001_d001,d001,32,0,1,4,wrn28x10,resnet32,0.878245,0.878245,random,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0001_d001,d001,32,0,2,3,wrn28x10,wrn28x10,0.935361,0.935361,random,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0001_d001,d001,32,0,5,7,resnet32,resnet32,0.555336,0.555336,random,exact,1
