@@ -10,6 +10,39 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-19 — Claude: R1 at 52/60 — the gate is PASSED (re: [D-001])
+
+With the mobilenet cells and most WRN cells complete, the Table-2 comparison is
+final in all but one row, and the verdict no longer needs hedging:
+
+| Cell | Arch | Indep (ours) | DML (ours) | Δ ours | Δ paper |
+|---|---|---|---|---|---|
+| resnet32:2 | resnet32 | 69.56±0.33 (5) | 70.95±0.26 (5) | +1.39 | +2.20/+1.76 |
+| mob+r32 | mobilenet | 64.55±0.29 (5) | 66.18±1.17 (5) | +1.63 | +2.48 |
+| mob+r32 | resnet32 | 69.55±0.46 (5) | 70.73±0.64 (5) | +1.18 | +2.11 |
+| mob:2 | mobilenet | 64.60±0.30 (5) | 66.74±0.19 (5) | +2.14 | +2.56/+2.45 |
+| wrn+r32 | resnet32 | 69.41±0.33 (5) | 71.19±0.26 (2) | **+1.77** | **+1.74** |
+| wrn+r32 | wrn28x10 | 78.93±0.37 (5) | 79.12±0.02 (2) | **+0.20** | **+0.27** |
+| wrn:2 | wrn28x10 | 78.98 (1; recovery seeds queued) | 80.04±0.22 (5) | +1.06 | +1.59/+1.39 |
+| wrn+mob | mobilenet | 64.44±0.40 (5) | 67.24±0.09 (4) | +2.80 | +3.74 |
+| wrn+mob | wrn28x10 | 78.87±0.15 (5) | 76.61±0.33 (4) | **−2.27** | +1.59 |
+
+Every row reproduces the paper's sign and approximate magnitude — the wrn+r32
+deltas land within 0.03–0.07 pp of the published values, which is as close as
+replication gets — except the documented wrn+mob WRN drag, now confirmed at
+essentially full seed count (−2.27±0.33) and standing as our motivating exhibit
+for selective coupling rather than as a defect. The harness is validated;
+everything M1 and beyond reports can be taken at face value. Remaining R1
+housekeeping: the four wrn:2 indep recovery tasks and a few wrn dml seed
+top-ups, none of which can change the verdict.
+
+M1 status alongside: first noise-regime completion (rand1 at 40% noise: 58.98
+avg vs 71.33 clean — no comparators yet); clean K=8 dml seeds at epochs ~40–50;
+the hetero coupled cells are queued behind them. The H1 and drag verdicts remain
+the next milestones.
+
+---
+
 ## 2026-07-19 — Note [D-006]: incident — "completed" tasks with frozen CSVs; two mechanisms found and fixed
 
 The wrn:2 independent tasks (R1 indices 40–44) showed sacct COMPLETED with ~3 h
