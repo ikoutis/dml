@@ -100,14 +100,20 @@ def mean_pairwise_error_correlation(preds: np.ndarray, y: np.ndarray) -> float:
 
 class CsvWriter:
     """Append-oriented CSV writer. The header is fixed by the first row ever
-    written; later rows must carry the same keys. Rows are flushed
-    immediately so partial runs are usable. ``truncate_to_epoch`` supports
-    checkpoint resume: it drops rows with epoch > the resumed epoch."""
+    written; later rows must carry the same keys. ``truncate_to_epoch``
+    supports checkpoint resume: it drops rows with epoch > the resumed epoch.
+
+    Each write REOPENS the file (open-append-close) instead of holding a
+    long-lived handle. This matters on a live results directory: git
+    operations (stash apply, checkout) replace files by inode, and a held
+    handle then appends into the orphaned old inode — rows silently vanish
+    from the visible file (observed in production, [D-006]). Reopening by
+    path per write survives any concurrent file replacement; at one write
+    per epoch the cost is nil."""
 
     def __init__(self, path: str):
         self.path = path
         self.fieldnames: Optional[List[str]] = None
-        self._fh = None
         if os.path.exists(path) and os.path.getsize(path) > 0:
             with open(path, newline="") as fh:
                 reader = csv.reader(fh)
@@ -130,18 +136,15 @@ class CsvWriter:
             writer.writerows(kept)
 
     def write(self, row: Dict) -> None:
-        if self._fh is None:
-            new_file = self.fieldnames is None
-            if new_file:
-                self.fieldnames = list(row.keys())
-            self._fh = open(self.path, "a", newline="")
-            self._writer = csv.DictWriter(self._fh, fieldnames=self.fieldnames)
-            if new_file or os.path.getsize(self.path) == 0:
-                self._writer.writeheader()
-        self._writer.writerow(row)
-        self._fh.flush()
+        if self.fieldnames is None:
+            self.fieldnames = list(row.keys())
+        need_header = (not os.path.exists(self.path)
+                       or os.path.getsize(self.path) == 0)
+        with open(self.path, "a", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=self.fieldnames)
+            if need_header:
+                writer.writeheader()
+            writer.writerow(row)
 
     def close(self) -> None:
-        if self._fh is not None:
-            self._fh.close()
-            self._fh = None
+        pass  # kept for API compatibility; no handle is held anymore

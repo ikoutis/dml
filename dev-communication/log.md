@@ -10,6 +10,62 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-19 — Note [D-006]: incident — "completed" tasks with frozen CSVs; two mechanisms found and fixed
+
+The wrn:2 independent tasks (R1 indices 40–44) showed sacct COMPLETED with ~3 h
+elapsed each, while their metrics CSVs sat frozen at epochs ~32–67. Diagnosis
+found two independent mechanisms compounding, both now fixed in code:
+
+**1. Orphaned CSV writers (data loss).** The trainer held one open append handle
+per CSV for the whole run. During the git autostash-conflict episode on the
+cluster, git rewrote the dirty results CSVs (git replaces files by inode), so
+every running job's handle pointed at the orphaned old inode from that moment
+on — the visible files froze at the stash-time snapshot while the jobs kept
+appending into the void. Rows written after the rewrite are unrecoverable, but
+the CHECKPOINTS are unaffected (written via atomic tmp+rename — a fresh inode
+each time), so no model state was lost anywhere. *Fix:* CsvWriter now reopens
+the file by path on every write (open-append-close, once per epoch — zero cost);
+any future file replacement self-heals on the next row. *Practice note:* plain
+`git pull` (merge) never touched results files and was always safe; it was the
+stash apply that rewrote them. With the fix, even that is safe.
+
+**2. The requeue race (tasks silently leaving the queue).** SLURM's preemption
+with GraceTime resets a job's end time to now+grace — which makes our
+`--signal=B:USR1@1800` fire immediately, not just at the 72 h wall. The trainer
+then checkpoints and exits 85 (by design), but the script's next moves were
+`scontrol requeue; exit 0` — and the clean exit races the requeue: SLURM records
+COMPLETED and the task vanishes from the queue mid-run. That is exactly the
+simultaneous 19:14 "completions" of tasks 40/41/42/44 (a preemption wave) and
+43's second instance dying at epoch ~192. *Fix:* after `scontrol requeue` the
+script now WAITS to be killed (the kill is the proof the requeue took) and, if
+no kill arrives in 5 minutes, exits 75 — a loud FAILED that
+`tools/incomplete.py` surfaces. It never exits 0 on this path again. A
+side-benefit of understanding this: USR1-at-preemption is actually a feature —
+the trainer gets a graceful checkpoint at the epoch boundary even under
+preemption, when the grace window allows it.
+
+**Recovery (one-time, on the cluster):**
+1. `git pull` (picks up both fixes; running jobs keep old code until restarted).
+2. Resubmit the affected R1 tasks: `sbatch --array=40-44 slurm/r1_pairs.sbatch`
+   — their checkpoints are at epoch ~190+, so each finishes in minutes. Their
+   CSVs will carry a gap (frozen rows → final rows); final-epoch gate numbers
+   are unaffected, and if we want gap-free curves for these five seeds later,
+   a `--resume`-less rerun is one array line.
+3. Restart everything currently RUNNING so it picks up fixed code and fresh
+   file handles (each resumes from its ≤10-epoch-old checkpoint):
+   `scontrol requeue $(squeue --me -h -r -n dml_r1,dml_m1 -t R -o "%i" | paste -sd' ')`
+4. Sweep for any other task that left the queue unfinished:
+   compare `python tools/incomplete.py <exp>` against `squeue --me -r` per the
+   MISSING one-liner in the 2026-07-19 exchange, and resubmit the difference.
+
+Audit note for analysis: runs whose CSVs contain an epoch gap (the five wrn:2
+indep seeds, possibly a few M1 cells caught in the same stash window) are
+identifiable by non-contiguous epoch columns; `analysis/aggregate.py` uses
+final-epoch rows and per-epoch means, both of which tolerate gaps, but curve
+figures for those seeds will show a hole over the frozen interval.
+
+---
+
 ## 2026-07-19 — Claude: first M1 completions — matched mutual learning works, +2.4 pp over Independent at degree 1, and the matcher's dynamics are textbook (re: [D-001])
 
 The first matched-arm runs finished (resnet32:8 clean: mwmd1 seeds 2/4/5, rand1

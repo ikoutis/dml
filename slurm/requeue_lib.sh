@@ -39,9 +39,20 @@ run_with_requeue() {
     set -e
     trap - USR1
     if [ "$rc" -eq 85 ]; then
-        echo "=== 72 h wall approaching: checkpointed; requeueing ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} | $(date) ==="
-        scontrol requeue "${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
-        exit 0
+        # rc 85 = trainer checkpointed after USR1. NOTE: USR1 fires not only
+        # near the 72 h wall — preemption with GraceTime resets the job's end
+        # time to now+grace, which triggers --signal immediately. Either way
+        # the correct move is: request a requeue, then WAIT to be killed.
+        # Never exit 0 here: a clean exit races the requeue and SLURM can
+        # record COMPLETED and drop the task from the queue with the run
+        # unfinished (observed in production, [D-006]). If the requeue-kill
+        # (or the preemption kill) doesn't arrive, exit 75 — a loud FAILED
+        # that tools/incomplete.py surfaces for resubmission.
+        echo "=== USR1: checkpointed; requeueing ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} and awaiting kill | $(date) ==="
+        scontrol requeue "${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}" || true
+        sleep 300
+        echo "=== requeue kill never arrived; exiting 75 for manual resubmission ==="
+        exit 75
     fi
     return "$rc"
 }
