@@ -10,6 +10,58 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-19 — Claude: first M1 completions — matched mutual learning works, +2.4 pp over Independent at degree 1, and the matcher's dynamics are textbook (re: [D-001])
+
+The first matched-arm runs finished (resnet32:8 clean: mwmd1 seeds 2/4/5, rand1
+seed 5, indep seeds 2/3/4; dense dml still at epochs ≤ 25). Final-epoch numbers:
+
+| Arm | Avg individual | Ensemble | Ens−avg gap | ρ | Bytes/model |
+|---|---|---|---|---|---|
+| indep (n=3) | 69.31±0.12 | 76.97 | 7.66 | 0.555 | 0 |
+| mwmd1 (n=3) | **71.75±0.13** | 75.87 | 4.12 | 0.657 | 3.6 GB |
+| rand1 (n=1) | 71.34 | 75.47 | 4.14 | 0.657 | 3.6 GB |
+| dml (n=0) | — pending — | | | | (will be 25.2 GB) |
+
+**What this already establishes.** Degree-1 matched mimicry at K=8 lifts average
+individual accuracy by **+2.44 pp over Independent** — noticeably more than dense
+DML bought at K=2 (+1.39 in R1) — at one-seventh of dense coupling's
+communication (the ledger columns confirm 3.6 GB vs the 25.2 GB dense will log).
+The cohort-size benefit at constant per-model communication, which is M3's
+thesis, is already visible here. What it does NOT yet establish is H1 proper —
+whether matched *equals dense* at K=8 — because the dml cells are the slowest to
+schedule. That comparison is the single number to watch next.
+
+**mwmd1 vs rand1: direction interesting, evidence insufficient.** 71.75 vs 71.34
+(+0.42), and +0.51 on the one paired seed. H2 predicted a *tie* here (clean
+homogeneous = the modularity-flat regime); Idea 2b's sharper secondary claim —
+that in mutual sessions the first-order terms cancel pair-wise, so
+disagreement-weighting works at second order even in homogeneous cohorts — would
+predict exactly a small mwmd1 edge. At n=1 rand1 this is a hypothesis, not a
+finding; the running rand1 seeds decide it.
+
+**Matcher diagnostics (the [D-001] epoch-0 check): all clean.**
+- Epoch 0: every pairwise disagreement is 1.000 (random-init models agree
+  nowhere), so all matchings tie and the solver's deterministic tie-break picks
+  (0,1)(2,3)(4,5)(6,7) — effectively arbitrary, as declared. One honest nuance:
+  at epoch 0 the matching is deterministic-under-ties rather than sampled.
+- The mean matched-edge weight then *depletes* over training — 0.92 (ep 1) →
+  0.54 (ep 10) → 0.30 (ep 120) → 0.22 (ep 199) — the disagreement-consumption
+  dynamic Idea 2b predicts, measured directly in matches.csv.
+- Rotation is healthy: every model partners with all 7 peers across the run;
+  consecutive-epoch partner-repeat rate 0.21 vs ~0.14 for uniform random — mild
+  persistence (max-weight re-selects high-disagreement pairs), which is exactly
+  the dial M4's recency arms modulate.
+
+**Diversity ledger so far:** both coupled arms trade ensemble for individuals
+(ensemble 75.5–75.9 vs indep's 76.97; ρ 0.657 vs 0.555) — same currency exchange
+R1 showed at K=2. The H3 question is whether dense dml pays MORE for the same
+individual gain; pending its completions.
+
+R1 meanwhile: 37/60, wrn:2 now indep 78.98 (1 seed) vs dml 79.98±0.20 (4) →
+Δ +1.00 heading toward the paper's +1.39/+1.59. No change to the gate verdict.
+
+---
+
 ## 2026-07-18 — Claude: R1 at 33/60 — gate holds, WRN:2 matches the paper to 0.2 pp, and one qualitative deviation worth having (re: [D-001])
 
 Extended read after today's pushes. The table (complete runs only, mean±std):
