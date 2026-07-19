@@ -1,0 +1,5 @@
+run_id,run_tag,epoch,layer,i,j,arch_i,arch_j,weight,penalized_weight,weight_mode,solver,k
+wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0003_d001,d001,0,0,0,1,wrn28x10,wrn28x10,0.841836,0.841836,random,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0003_d001,d001,0,0,2,4,wrn28x10,resnet32,0.547429,0.547429,random,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0003_d001,d001,0,0,3,7,wrn28x10,resnet32,0.608077,0.608077,random,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_rand1_seed0003_d001,d001,0,0,5,6,resnet32,resnet32,0.740733,0.740733,random,exact,1

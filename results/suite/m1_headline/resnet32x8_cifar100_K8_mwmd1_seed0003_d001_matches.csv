@@ -1,0 +1,5 @@
+run_id,run_tag,epoch,layer,i,j,arch_i,arch_j,weight,penalized_weight,weight_mode,solver,k
+resnet32x8_cifar100_K8_mwmd1_seed0003_d001,d001,0,0,0,1,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_seed0003_d001,d001,0,0,2,3,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_seed0003_d001,d001,0,0,4,5,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_seed0003_d001,d001,0,0,6,7,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
