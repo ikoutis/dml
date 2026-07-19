@@ -103,3 +103,15 @@ wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,25,0,0,4,wrn28x10,res
 wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,25,0,1,7,wrn28x10,resnet32,0.516200,0.516200,disagreement,exact,1
 wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,25,0,2,5,wrn28x10,resnet32,0.583800,0.583800,disagreement,exact,1
 wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,25,0,3,6,wrn28x10,resnet32,0.528800,0.528800,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,26,0,0,4,wrn28x10,resnet32,0.530800,0.530800,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,26,0,1,7,wrn28x10,resnet32,0.481000,0.481000,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,26,0,2,6,wrn28x10,resnet32,0.502400,0.502400,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,26,0,3,5,wrn28x10,resnet32,0.463000,0.463000,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,27,0,0,4,wrn28x10,resnet32,0.540800,0.540800,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,27,0,1,5,wrn28x10,resnet32,0.537200,0.537200,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,27,0,2,7,wrn28x10,resnet32,0.571800,0.571800,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,27,0,3,6,wrn28x10,resnet32,0.492600,0.492600,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,28,0,0,7,wrn28x10,resnet32,0.480800,0.480800,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,28,0,1,4,wrn28x10,resnet32,0.489800,0.489800,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,28,0,2,5,wrn28x10,resnet32,0.547400,0.547400,disagreement,exact,1
+wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed0005_d001,d001,28,0,3,6,wrn28x10,resnet32,0.534400,0.534400,disagreement,exact,1

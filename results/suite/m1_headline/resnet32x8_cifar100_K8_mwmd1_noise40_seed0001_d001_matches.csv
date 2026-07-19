@@ -1,0 +1,17 @@
+run_id,run_tag,epoch,layer,i,j,arch_i,arch_j,weight,penalized_weight,weight_mode,solver,k
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,0,0,0,1,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,0,0,2,3,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,0,0,4,5,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,0,0,6,7,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,1,0,0,2,resnet32,resnet32,0.880800,0.880800,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,1,0,1,7,resnet32,resnet32,0.235400,0.235400,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,1,0,3,5,resnet32,resnet32,0.816600,0.816600,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,1,0,4,6,resnet32,resnet32,0.287000,0.287000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,2,0,0,5,resnet32,resnet32,0.805000,0.805000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,2,0,1,4,resnet32,resnet32,0.871000,0.871000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,2,0,2,6,resnet32,resnet32,0.954000,0.954000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,2,0,3,7,resnet32,resnet32,0.743000,0.743000,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,3,0,0,1,resnet32,resnet32,0.951400,0.951400,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,3,0,2,7,resnet32,resnet32,0.743800,0.743800,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,3,0,3,6,resnet32,resnet32,0.725400,0.725400,disagreement,exact,1
+resnet32x8_cifar100_K8_mwmd1_noise40_seed0001_d001,d001,3,0,4,5,resnet32,resnet32,0.750000,0.750000,disagreement,exact,1
