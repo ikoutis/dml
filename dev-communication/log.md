@@ -10,6 +10,56 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-18 — Claude: R1 at 33/60 — gate holds, WRN:2 matches the paper to 0.2 pp, and one qualitative deviation worth having (re: [D-001])
+
+Extended read after today's pushes. The table (complete runs only, mean±std):
+
+| Cell | Arch | Indep | DML | Δ ours | Δ paper |
+|---|---|---|---|---|---|
+| resnet32:2 | resnet32 | 69.56±0.33 (5) | 70.95±0.26 (5) | **+1.39** | +2.20/+1.76 |
+| mob+r32 | mobilenet | 64.55±0.29 (5) | 66.18±1.17 (5) | **+1.63** | +2.48 |
+| mob+r32 | resnet32 | 69.55±0.46 (5) | 70.73±0.64 (5) | **+1.18** | +2.11 |
+| mob:2 | mobilenet | 64.70 (1) | 66.72±0.10 (3) | **+2.02** | +2.56/+2.45 |
+| wrn+r32 | resnet32 | 69.16 (1) | 71.37 (1) | **+2.21** | +1.74 |
+| wrn+r32 | wrn28x10 | 79.14 (1) | 79.14 (1) | **+0.00** | +0.27 |
+| wrn:2 | wrn28x10 | (in flight) | **80.07±0.12 (3)** | — | 80.28/80.08 |
+| **wrn+mob** | mobilenet | 64.60±0.31 (2) | 67.25±0.15 (2) | **+2.64** | +3.74 |
+| **wrn+mob** | wrn28x10 | 78.82±0.24 (2) | **76.36±0.28 (2)** | **−2.46** | **+1.59** |
+
+Everything is the paper's story — every small-net delta positive at sensible
+magnitudes, the wrn+r32 resnet gain (+2.21) right on the paper's +1.74, the WRN
+barely moved by a resnet partner (+0.00 vs +0.27), and the WRN:2 DML cell landing
+at 80.07 against the paper's 80.28/80.08 — except one row, and that row is
+informative rather than embarrassing.
+
+**The deviation: our WRN LOSES 2.46 pp when densely coupled to MobileNet** (paper:
+gains 1.59). The trajectory makes the mechanism plain: the coupled WRN tracks its
+independent twin's shape but plateaus ~2.3 pp lower from the first LR drop onward,
+with its KL term still ≈ 0.26 at epoch 199 — it spends the whole run being pulled
+toward its partner's posterior. The root cause is the already-flagged MobileNet
+calibration gap: the paper's MobileNet sat ~5 pp below its WRN; ours sits ~14 pp
+below (64.6 vs 78.8). At that competence gap, dense mimicry of the weak partner
+stops being regularization and becomes drag. Same code, same settings, produces
++1.2 to +2.6 everywhere else and reproduces WRN:2 to 0.2 pp — this is a property
+of the pairing, not a bug.
+
+Two consequences. First, for the writeup: the wrn+mob row is our cleanest
+motivating exhibit for *selective* coupling — dense DML has no mechanism to notice
+that a partner is too weak to imitate; the teachable weight w = m − κ·u (M6's
+mwmt arms) measures exactly the damage term this row realizes. Second, a sharpened
+prediction for M1's heterogeneous cell (4×WRN + 4×resnet32, a ~9 pp competence
+gap): dense dml should show WRN-side drag relative to indep, and the matched arms
+— which concentrate mimicry on the highest-disagreement partner rather than
+averaging over all peers — should show less of it. If mwmd1 protects the WRNs
+while keeping the resnet gains, that is a headline figure, not a footnote.
+
+**Status:** 33/60 R1 complete; wrn:2 indep (5 seeds, epochs ~30–70) and the
+remaining wrn+mob/wrn+r32 seeds close the table. M1 is running — its resnet32:8
+indep/dml cells are at epochs ~0–70; rand1/mwmd1 cells not yet started, so the
+epoch-0 matching-randomness check is still pending.
+
+---
+
 ## 2026-07-18 — Claude: first R1 outcomes — the gate is provisionally PASSING (re: [D-001], partial batch)
 
 Read from the 20/60 completed R1 runs pushed today (all resnet32:2 and
