@@ -104,6 +104,13 @@ def _m6(i):
              "--seed", str(i % 5 + 1)] + arms[(i // 5) % 3] + TAG)
 
 
+def _m1b(i):  # [D-007] follow-up: per-class matched arm, clean + noise
+    noise = "0.0" if i < 5 else "0.4"
+    return (["--cohort", "resnet32:8", "--arm", "matched",
+             "--match_weight", "perclass", "--label_noise_rate", noise,
+             "--seed", str(i % 5 + 1)] + TAG)
+
+
 # exp -> (index->argv, n_tasks, output_dir, sbatch script)
 GRIDS = {
     "r1": (_r1, 60, "results/suite/r1_pairs", "slurm/r1_pairs.sbatch"),
@@ -113,6 +120,7 @@ GRIDS = {
     "m4": (_m4, 15, "results/suite/m4_rotation", "slurm/m4_rotation.sbatch"),
     "m5": (_m5, 5, "results/suite/m5_target_structure", "slurm/m5_target_structure.sbatch"),
     "m6": (_m6, 30, "results/suite/m6_weight_signal", "slurm/m6_weight_signal.sbatch"),
+    "m1b": (_m1b, 10, "results/suite/m1_headline", "slurm/m1b_perclass.sbatch"),
 }
 
 

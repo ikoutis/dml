@@ -54,7 +54,11 @@ pick_complete() {
         m="${f%_ckpt.pt}_metrics.csv"
         [ -f "$m" ] || continue
         last=$(tail -n 1 "$m" | cut -d, -f"$(head -1 "$m" | tr ',' '\n' | grep -nx epoch | cut -d: -f1)")
-        if [ "$last" = "199" ]; then echo "$f"; return; fi
+        # Accept any checkpoint past the final LR drop (epoch >= 120); signal
+        # structure is stable there, and this lets a still-running or partially
+        # checkpointed cohort (e.g. one whose final ckpt was cleaned) still be
+        # measured. The tool prints the actual epoch it loaded.
+        if [ -n "$last" ] && [ "$last" -ge 120 ] 2>/dev/null; then echo "$f"; return; fi
     done
 }
 

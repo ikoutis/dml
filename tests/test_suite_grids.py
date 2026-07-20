@@ -10,12 +10,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from incomplete import GRIDS, compress, run_id_for  # noqa: E402
 
 EXPECTED_SIZES = {"r1": 60, "m1": 60, "m2": 20, "m3": 25, "m4": 15,
-                  "m5": 5, "m6": 30}
+                  "m5": 5, "m6": 30, "m1b": 10}
+_BASE_SUITE = ("r1", "m1", "m2", "m3", "m4", "m5", "m6")
 
 
 def test_grid_sizes_match_sbatch_arrays():
     assert {e: n for e, (_, n, _, _) in GRIDS.items()} == EXPECTED_SIZES
-    assert sum(EXPECTED_SIZES.values()) == 215  # experiments.md §6 total
+    # base suite (experiments.md §6); m1b is a [D-007] follow-up on top.
+    assert sum(EXPECTED_SIZES[e] for e in _BASE_SUITE) == 215
 
 
 def test_run_ids_unique_across_suite():

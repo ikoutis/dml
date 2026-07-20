@@ -10,6 +10,50 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-20 — Note [D-008]: signal-structure diagnostic run — per-class is the only richer signal with structure; launching a per-class arm (M1b) to test it
+
+`tools/signal_structure.py` was run on completed checkpoints (results/analysis/).
+For each edge-weight signal it reports the cross-pair coefficient of variation
+and the max-weight matching's realized-weight gain over a random matching —
+i.e. how much accuracy-relevant signal MWM can actually extract.
+
+| Signal | clean (indep) CV / gain | noise (indep) CV / gain | clean (mwmd1) gain |
+|---|---|---|---|
+| disagreement (scalar) | 0.015 / +1.4% | 0.013 / +0.7% | +1.4% |
+| errorfield (per-example) | 0.020 / +1.9% | 0.019 / +2.2% | +2.5% |
+| **perclass (per-class)** | **0.088 / +6.8%** | **0.092 / +8.2%** | +6.0% |
+| teachable, accgap | (near-zero-mean artifact — ignore) | | |
+
+Findings. (1) **Per-class accuracy-vector distance carries ~5x the exploitable
+structure of scalar disagreement** — consistently across regimes and on both
+independent (max-structure) and coupled cohorts, so coupling does not wash it
+out. This vindicates the granularity intuition ([D-007]): a scalar can be
+near-uniform (CV ~0.015 => matching ~ random) while the per-class profile is
+structured (CV ~0.09). (2) **The per-example error field is NOT worth pursuing**
+— barely above scalar (+2%). (3) The teachable/accgap "+20-30%" is a
+divide-by-near-zero artifact (mean weight ~0.005 because all models have
+near-equal accuracy in these homogeneous cohorts); it is not real structure,
+and it foreshadows M6's mwmt/gap arms also being null here. (4) **Hetero could
+not be measured** — the ~600 MB WRN checkpoints were cleaned from disk, so no
+completed hetero cohort remained for any arm. Hetero is where per-class
+structure should be LARGEST (architectural difference => genuinely different
+per-class strengths), so that number is still open.
+
+Decision. Rather than reconstruct a hetero checkpoint for a proxy measurement,
+test the real thing: `slurm/m1b_perclass.sbatch` runs `--match_weight perclass`
+(label `mwmpc1`) in the two slice-friendly regimes (resnet32:8 clean and +40%
+noise), 5 seeds each = 10 tasks. The rand1 and mwmd1 anchors already exist in
+results/suite/m1_headline at the same cohort and seeds, so aggregate.py compares
+directly. The measured +6-8% per-class structure is ~5x the scalar's +1.4% that
+produced the +0.2 pp mwmd1-over-rand1 effect, so if the accuracy effect scales
+with weight-advantage, mwmpc1 could land ~+0.5-1 pp over random — worth the cheap
+test. Falsifiable both ways: a clear margin (> ~0.4 pp paired) => the
+multidimensional signal matters (a real positive for who-teaches-whom); a tie
+(~+0.2 pp) => selection is flat even at per-class granularity (a robust null).
+Hetero perclass (full-A100) is deferred pending this. Tracking: `tools/incomplete.py m1b`.
+
+---
+
 ## 2026-07-20 — Note [D-007]: MWM verified correct; the null is real; adding a multidimensional (per-class / per-example) edge weight to attack it where it should live
 
 Two things in this entry: (a) the MWM implementation is verified correct end to
