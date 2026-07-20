@@ -68,9 +68,13 @@ run_regime() {
         echo "  (glob: $glob)"; return
     fi
     echo "  checkpoint: $ckpt"
+    # Don't let one regime's failure abort the whole job (pipefail + set -e).
+    set +e
     python tools/signal_structure.py "$ckpt" --cohort "$cohort" \
         --dataset cifar100 --data_dir data --device cuda \
-        2>&1 | tee "$OUT/signal_structure_${name}.txt"
+        > "$OUT/signal_structure_${name}.txt" 2>&1
+    set -e
+    cat "$OUT/signal_structure_${name}.txt"
 }
 
 run_regime clean  "resnet32:8"            "$CK/resnet32x8_cifar100_K8_mwmd1_seed000"*"_d001_ckpt.pt"

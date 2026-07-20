@@ -31,11 +31,17 @@ errorfield) in that regime — the modes are implemented and CLI-exposed.
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 
 import numpy as np
 import torch
 
-from src import matching as mt
+# Allow `python tools/signal_structure.py ...` from the repo root: put the repo
+# root (this file's parent's parent) on the path so `src` imports resolve.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src import matching as mt  # noqa: E402
 from src.cohort import build_cohort, parse_cohort_spec
 from src.data import load_data, make_loaders, num_classes
 from src.metrics import evaluate_cohort
