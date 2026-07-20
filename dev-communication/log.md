@@ -10,6 +10,66 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-19 — Claude: first multi-seed hetero read — the drag prediction is falsified, H1/H2/H3 lean conservative (re: [D-001])
+
+The heterogeneous cohort (4×WRN-28-10 + 4×ResNet-32) now has real seed counts on
+three arms, and it forces three honest updates. Final-epoch means:
+
+| Arm | n | cohort avg | WRN side | ResNet side | ens | ens−avg | ρ | bytes/model |
+|---|---|---|---|---|---|---|---|---|
+| indep | 4 | 74.11±0.14 | 78.81 | 69.41 | 81.20 | 7.09 | 0.567 | 0 |
+| dml (dense) | 2 | **75.91±0.08** | 79.85 | 71.97 | 80.18 | 4.27 | 0.657 | 25.2 GB |
+| rand1 | 2 | 75.54±0.10 | 79.31 | 71.76 | 79.72 | 4.18 | 0.657 | 3.6 GB |
+| mwmd1 | 1 | 75.31 | 79.19 | 71.43 | 79.41 | 4.10 | 0.654 | 3.6 GB |
+
+**1. My drag prediction is falsified — cleanly.** I predicted dense coupling would
+drag the WRNs below their 78.81 independent baseline in this cohort (as it did in
+R1's wrn+mobilenet at K=2). The opposite happens: *every* coupled arm LIFTS the
+WRNs — dense +1.04, random +0.50, MWM +0.38 — and lifts the ResNets ~+2 to +2.6.
+This is now robust (multiple arms, n=2). The mechanism is the dilution argument
+from the previous entry: at K=8 with a ~9 pp competence gap, each WRN's mimicry
+target is dominated by strong peers, so there is no weak-partner drag. The K=2
+wrn+mobilenet drag needed BOTH an extreme gap (14 pp) AND an undiluted single
+partner. So the honest paper claim is not "dense drags big models" but "drag is a
+function of competence-gap × coupling-concentration; it appears at K=2 with an
+extreme-gap partner and vanishes at K=8 under dilution." That is a more careful and
+more defensible statement than the one I registered.
+
+**2. H1 (matched vs dense) — dense noses ahead here, ~0.4 pp.** dml 75.91 vs rand1
+75.54 (Δ +0.37) vs mwmd1 75.31 (Δ +0.60), with tight ±0.08–0.10 variance. This is
+NOT the clean tie H1 hoped for — dense wins a small but apparently real margin in
+the hetero cohort. It does not dent the communication story: +0.4 pp of accuracy
+for 7× the bandwidth is a trade almost any distributed deployment takes, and
+matched still crushes independent (+1.4 pp). But "matched equals dense" needs
+qualification — at K=8 it is "matched within ~0.4 pp of dense at 1/7 the
+communication." The clean-cohort H1 verdict is imminent (dml seeds 4/5 finally
+advancing, epochs 105/93) and will say whether the ~0.4 pp dense edge is
+hetero-specific or general.
+
+**3. H3 (matched conserves diversity) is NOT appearing in the hetero cohort.** All
+three coupled arms sit at ρ ≈ 0.655 and ens−avg gap ≈ 4.1–4.3 — dense and matched
+pay the *same* diversity price for their gains. The prediction that dense
+homogenizes more than matched does not show here. (Whether it appears in the clean
+cohort awaits clean dense.)
+
+**4. H2 (MWM > random) — within noise everywhere so far, leaning modularity-tie.**
+Clean: mwmd1 71.66 (n=5) vs rand1 71.33 (n=1). Noise: mwmd1 58.70 (n=2) vs rand1
+58.98 (n=1). Hetero: mwmd1 75.31 (n=1) vs rand1 75.54 (n=2). MWM is not beating
+random in any regime yet — consistent with H2's *conservative* prediction (the
+first-order modularity tie), and against the sharper second-order hope. BUT rand1
+is badly undersampled (n=1 in two of three regimes), so this is provisional; the
+pending rand1 seeds are now the highest-value runs in the queue for the
+who-teaches-whom question.
+
+**Net:** the communication/scaling story (the publishable floor) is intact and
+strong. The two "full-win" storylines — MWM-beats-random, and matched-conserves-
+diversity — are both currently reading NULL, which would land us at the "solid
+win" rung (communication result + the drag-dilution mechanism) rather than the
+top. Not decided: clean dense H1, and rand1 at full seeds. Those two batches
+determine which paper this is.
+
+---
+
 ## 2026-07-19 — Claude: R1 at 52/60 — the gate is PASSED (re: [D-001])
 
 With the mobilenet cells and most WRN cells complete, the Table-2 comparison is
