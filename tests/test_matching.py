@@ -174,6 +174,42 @@ class TestWeights:
         assert W.shape == (6, 6)
         assert W == pytest.approx(W.T)
 
+    def test_perclass_distance(self):
+        # 2 classes; model 0 perfect on class 0, wrong on class 1;
+        # model 1 the mirror; model 2 == model 0. y = [0,0,1,1].
+        y = np.array([0, 0, 1, 1])
+        preds = np.array([[0, 0, 0, 0],   # acc vec [1, 0]
+                          [1, 1, 1, 1],   # acc vec [0, 1]
+                          [0, 0, 0, 0]])  # acc vec [1, 0] (== model 0)
+        W = mt.perclass_distance_weights(preds, y, n_cls=2)
+        assert W == pytest.approx(W.T)
+        # models 0 and 2 have identical profiles -> distance 0
+        assert W[0, 2] == pytest.approx(0.0)
+        # models 0 and 1 are maximally complementary: ||[1,0]-[0,1]|| / sqrt(2) = 1
+        assert W[0, 1] == pytest.approx(1.0)
+        assert W[0, 1] > W[0, 2]
+
+    def test_errorfield_distance(self):
+        y = np.array([0, 0, 0, 0])
+        # model 0 errs on {2,3}; model 1 errs on {0,1}: disjoint -> all 4 differ
+        preds = np.array([[0, 0, 9, 9],
+                          [9, 9, 0, 0],
+                          [0, 0, 9, 9]])  # == model 0: identical error field
+        W = mt.errorfield_distance_weights(preds, y)
+        assert W == pytest.approx(W.T)
+        assert W[0, 1] == pytest.approx(1.0)   # exactly one errs on every example
+        assert W[0, 2] == pytest.approx(0.0)   # identical error fields
+
+    def test_new_modes_via_edge_weights(self):
+        rng = np.random.default_rng(0)
+        y = np.array([0, 1, 0, 1])
+        preds = np.array([[0, 1, 0, 1], [0, 0, 0, 1], [1, 1, 0, 1], [0, 1, 1, 1]])
+        for mode in ("perclass", "errorfield"):
+            W = mt.edge_weights(mode, preds, y, 1.0, 4, rng)
+            assert W.shape == (4, 4)
+            assert W == pytest.approx(W.T)
+            assert np.allclose(np.diag(W), 0.0)
+
 
 class TestRecency:
     def test_penalty_breaks_repeated_pair(self):

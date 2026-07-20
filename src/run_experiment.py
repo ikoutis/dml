@@ -65,7 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--k_anneal", default="",
                    help="degree annealing schedule, e.g. '0:3,60:2,120:1'")
     p.add_argument("--match_weight", default="disagreement",
-                   choices=["disagreement", "teachable", "accgap", "random"])
+                   choices=["disagreement", "teachable", "accgap", "random",
+                            "perclass", "errorfield"])
     p.add_argument("--kappa", type=float, default=1.0)
     p.add_argument("--rematch_every_epochs", type=int, default=1,
                    help="0 = static: match once at epoch 0 and freeze")
@@ -99,7 +100,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 _WEIGHT_CODE = {"disagreement": "mwmd", "teachable": "mwmt",
-                "accgap": "gap", "random": "rand"}
+                "accgap": "gap", "random": "rand",
+                "perclass": "mwmpc", "errorfield": "mwmef"}
 
 
 def auto_arm_label(args) -> str:

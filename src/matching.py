@@ -36,7 +36,8 @@ import numpy as np
 
 Pair = Tuple[int, int]
 
-WEIGHT_MODES = ("disagreement", "teachable", "accgap", "random")
+WEIGHT_MODES = ("disagreement", "teachable", "accgap", "random",
+                "perclass", "errorfield")
 
 _EXACT_MAX_K = 16  # bitmask DP: 2^16 * 16^2 ~ 17M ops, < 1 s
 
@@ -77,6 +78,54 @@ def accgap_weights(preds: np.ndarray, y: np.ndarray) -> np.ndarray:
     return np.abs(acc[:, None] - acc[None, :])
 
 
+def perclass_accuracy_vectors(preds: np.ndarray, y: np.ndarray,
+                              n_cls: int) -> np.ndarray:
+    """Per-class competence profile a_i in R^n_cls: a_i[c] = accuracy of model i
+    on the validation examples whose TRUE label is c. Shape (K, n_cls).
+    Classes absent from the val set get 0 (they contribute equally to every
+    pair, so they do not bias distances)."""
+    K = preds.shape[0]
+    A = np.zeros((K, n_cls))
+    for c in range(n_cls):
+        m = (y == c)
+        if m.any():
+            A[:, c] = (preds[:, m] == c).mean(axis=1)
+    return A
+
+
+def perclass_distance_weights(preds: np.ndarray, y: np.ndarray,
+                              n_cls: int) -> np.ndarray:
+    """Multidimensional edge weight: Euclidean distance between per-class
+    accuracy profiles, w_ij = ||a_i - a_j||_2 (KD ideas.md granularity ladder;
+    the per-CLASS aggregation of the error field). Large when two models are
+    good at DIFFERENT classes — complementary competence a scalar disagreement
+    can miss when two models disagree equally overall but on different classes.
+    Normalized by sqrt(n_cls) so the scale is comparable across datasets."""
+    A = perclass_accuracy_vectors(preds, y, n_cls)
+    K = preds.shape[0]
+    W = np.zeros((K, K))
+    for i in range(K):
+        for j in range(i + 1, K):
+            W[i, j] = W[j, i] = float(
+                np.linalg.norm(A[i] - A[j]) / np.sqrt(n_cls))
+    return W
+
+
+def errorfield_distance_weights(preds: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Per-example error-field distance: with e_i[x] = 1[pred_i(x) != y(x)],
+    w_ij = P(exactly one of i, j errs) = mean(e_i XOR e_j) (the symmetric
+    teachable mass m_ij + u_ij; the finest-grain version of the KD error-field
+    overlap rho_ij). Large when the two models are wrong on DIFFERENT examples
+    — disjoint error fields, the pair the theory calls most valuable."""
+    err = (preds != y[None, :])
+    K = preds.shape[0]
+    W = np.zeros((K, K))
+    for i in range(K):
+        for j in range(i + 1, K):
+            W[i, j] = W[j, i] = float(np.mean(err[i] != err[j]))
+    return W
+
+
 def edge_weights(mode: str, preds: Optional[np.ndarray],
                  y: Optional[np.ndarray], kappa: float,
                  K: int, rng: np.random.Generator) -> np.ndarray:
@@ -97,6 +146,15 @@ def edge_weights(mode: str, preds: Optional[np.ndarray],
         if y is None:
             raise ValueError("accgap weights need validation labels")
         return accgap_weights(preds, y)
+    if mode == "perclass":
+        if y is None:
+            raise ValueError("perclass weights need validation labels")
+        n_cls = int(y.max()) + 1
+        return perclass_distance_weights(preds, y, n_cls)
+    if mode == "errorfield":
+        if y is None:
+            raise ValueError("errorfield weights need validation labels")
+        return errorfield_distance_weights(preds, y)
     raise ValueError(f"Unknown weight mode '{mode}'.")
 
 

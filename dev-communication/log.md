@@ -10,6 +10,70 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-20 — Note [D-007]: MWM verified correct; the null is real; adding a multidimensional (per-class / per-example) edge weight to attack it where it should live
+
+Two things in this entry: (a) the MWM implementation is verified correct end to
+end, so the H2 null is a finding not a bug; (b) a richer edge-weight family is
+now implemented, motivated by the KD repo's error-field idea, to give H2 a
+second shot in the regimes where scalar disagreement underperformed.
+
+**(a) MWM is correct — the null is real.** Verified against the production
+`matches.csv` and a controlled harness: the solver realizes the exact
+brute-force optimum on every matrix; the pipeline beats a random matching by
++61.5% (structured) / +24.4% (moderate) in realized weight when structure
+exists; each model provably mimics exactly its matched partner, symmetric,
+alpha=1; weight_mode=disagreement, exact solver, 200 refreshes, full rotation.
+The reason MWM ties random in the clean cohort is measured, not mysterious: the
+real late-training disagreement matrix is near-uniform (the four max-weight
+chosen pairs at epoch 199 span only 0.222–0.241), and on a matrix matching
+those stats (0.23±0.01) MWM can beat random by only +3.1% in weight → the
+observed ~0.2 pp. This is the first-order modularity prediction confirmed at the
+mechanism level: in a homogeneous cohort the models are exchangeable, so
+disagreement is uniform and "who teaches whom" is a flat choice.
+
+**(b) The granularity ladder — why a richer signal might rescue H2 where the
+scalar could not.** A scalar `P(pred_i != pred_j)` can be uniform across pairs
+while multidimensional structure is rich: two models can disagree the same TOTAL
+amount on DIFFERENT classes or examples. That decoupling is exactly what should
+appear in the HETERO and NOISE cohorts (different architectures strong on
+different classes; different models memorizing different noisy examples) — the
+two regimes where H2 was predicted to win and the scalar signal disappointed.
+The KD repo already has the deep version of this (`plan/theory_plan.md` D4: the
+per-example error field `E_i` and error-field overlap `rho_ij`, used as the
+diversity term `w - beta*rho`); the per-CLASS accuracy-vector distance is its
+coarser, interpretable sibling. Both are now implemented as edge weights:
+
+| mode | weight | granularity |
+|---|---|---|
+| `disagreement` (done) | P(pred_i != pred_j) | scalar |
+| `perclass` (new) | ‖acc_i − acc_j‖ over classes | per-class competence profile |
+| `errorfield` (new) | P(exactly one errs) = mean(e_i XOR e_j) | per-example error field |
+
+`src/matching.py` (`perclass_distance_weights`, `errorfield_distance_weights`),
+CLI `--match_weight {perclass,errorfield}` (arm labels `mwmpc1`, `mwmef1`), 83
+tests pass. A synthetic check confirms the discriminating power: on models with
+equal accuracy but complementary per-class strengths, per-class distance shows
+CV 0.275 and +29% MWM-gain-over-random vs the scalar's 0.159 / +16% — the richer
+signal sees structure the scalar half-misses.
+
+**Disciplined next step (cheap, before any GPU-hours): measure, then maybe
+run.** `tools/signal_structure.py` loads one completed checkpoint, rebuilds val
+predictions, and reports each signal's cross-pair CV and MWM-vs-random weight
+gain, per regime. Run it on one clean, one hetero, one noise checkpoint (they
+live on the cluster; checkpoints are gitignored):
+
+    python tools/signal_structure.py <ckpt.pt> --cohort <spec> --dataset cifar100 --data_dir data
+
+Decision rule: if per-class/error-field CV and gain are ~scalar in every regime,
+the MWM null is robust to signal choice — a clean, strong paper result
+("selection is flat at every granularity"). If they are materially larger in
+hetero/noise, launch a matched arm there with `--match_weight perclass` (or
+`errorfield`) — a targeted second shot at H2, aimed where the theory says the
+structure is. Either outcome is publishable; the diagnostic decides which
+without spending a GPU-hour on a guess.
+
+---
+
 ## 2026-07-20 — Claude: THE M1 VERDICT — R1 closes at 60/60; dense keeps a real half-point; matched keeps 80–95% of the benefit at 1/7 the bandwidth; and the noise cell produces the largest effect of the study (re: [D-001])
 
 R1 is complete (60/60; the retrained wrn:2 row lands at indep 78.76±0.28 vs dml
