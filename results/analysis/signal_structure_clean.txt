@@ -1,4 +1,7 @@
-Traceback (most recent call last):
-  File "/mmfs1/project/ikoutis/github/dml/tools/signal_structure.py", line 38, in <module>
-    from src import matching as mt
-ModuleNotFoundError: No module named 'src'
+checkpoint epoch 199, K=8, individual val accs = [71.1 71.6 72.4 71.6 71.6 71.4 72.  72.3]
+signal structure (higher CV / gain => more for MWM to exploit):
+  disagreement    mean=0.2288  CV=0.018  MWM_weight=0.9280  rand_exp=0.9155  MWM_gain_over_random=+1.36%
+  errorfield      mean=0.1436  CV=0.020  MWM_weight=0.5884  rand_exp=0.5742  MWM_gain_over_random=+2.48%
+  perclass        mean=0.0569  CV=0.081  MWM_weight=0.2417  rand_exp=0.2279  MWM_gain_over_random=+6.02%
+  teachable       mean=0.0052  CV=0.630  MWM_weight=0.0256  rand_exp=0.0208  MWM_gain_over_random=+23.17%
+  accgap          mean=0.0052  CV=0.630  MWM_weight=0.0256  rand_exp=0.0207  MWM_gain_over_random=+23.39%

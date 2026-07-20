@@ -1,0 +1,7 @@
+checkpoint epoch 199, K=8, individual val accs = [58.2 58.  58.7 58.5 57.  57.5 58.6 57.7]
+signal structure (higher CV / gain => more for MWM to exploit):
+  disagreement    mean=0.3700  CV=0.015  MWM_weight=1.4892  rand_exp=1.4803  MWM_gain_over_random=+0.60%
+  errorfield      mean=0.1903  CV=0.021  MWM_weight=0.7728  rand_exp=0.7612  MWM_gain_over_random=+1.53%
+  perclass        mean=0.0665  CV=0.064  MWM_weight=0.2829  rand_exp=0.2658  MWM_gain_over_random=+6.45%
+  teachable       mean=0.0071  CV=0.618  MWM_weight=0.0372  rand_exp=0.0285  MWM_gain_over_random=+30.32%
+  accgap          mean=0.0071  CV=0.618  MWM_weight=0.0372  rand_exp=0.0284  MWM_gain_over_random=+31.07%
