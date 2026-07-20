@@ -77,8 +77,31 @@ run_regime() {
     cat "$OUT/signal_structure_${name}.txt"
 }
 
-run_regime clean  "resnet32:8"            "$CK/resnet32x8_cifar100_K8_mwmd1_seed000"*"_d001_ckpt.pt"
-run_regime hetero "wrn28x10:4,resnet32:4" "$CK/wrn28x10x4-resnet32x4_cifar100_K8_mwmd1_seed000"*"_d001_ckpt.pt"
-run_regime noise  "resnet32:8"            "$CK/resnet32x8_cifar100_K8_mwmd1_noise40_seed000"*"_d001_ckpt.pt"
+# Any completed cohort of the right architecture works for measuring signal
+# structure; try arms in priority order (indep shows the MOST structure —
+# an upper bound before coupling homogenizes the cohort — then the coupled
+# arms) so a missing/cleaned checkpoint for one arm doesn't blank the regime.
+# Any completed cohort of the right architecture works for measuring signal
+# structure; try arms in priority order (indep shows the MOST structure — an
+# upper bound before coupling homogenizes the cohort — then the coupled arms)
+# so a missing/cleaned checkpoint for one arm doesn't blank the regime. The
+# winning arm's report is copied to the canonical regime filename.
+try_regime() {  # $1 regime, $2 cohort, $3 checkpoint-glob template with @ARM@
+    local regime="$1" cohort="$2" tmpl="$3" arm glob
+    for arm in indep dml rand1 mwmd1; do
+        glob="${tmpl//@ARM@/$arm}"
+        run_regime "${regime}_${arm}" "$cohort" "$glob"
+        if grep -q MWM_gain "$OUT/signal_structure_${regime}_${arm}.txt" 2>/dev/null; then
+            cp "$OUT/signal_structure_${regime}_${arm}.txt" \
+               "$OUT/signal_structure_${regime}.txt"
+            echo "  [$regime] used arm=$arm"; return
+        fi
+    done
+    echo "  [$regime] no usable checkpoint for any arm"
+}
+
+try_regime clean  "resnet32:8"            "$CK/resnet32x8_cifar100_K8_@ARM@_seed000*_d001_ckpt.pt"
+try_regime hetero "wrn28x10:4,resnet32:4" "$CK/wrn28x10x4-resnet32x4_cifar100_K8_@ARM@_seed000*_d001_ckpt.pt"
+try_regime noise  "resnet32:8"            "$CK/resnet32x8_cifar100_K8_@ARM@_noise40_seed000*_d001_ckpt.pt"
 
 echo "=== done $(date) ==="
