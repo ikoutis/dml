@@ -10,6 +10,75 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-20 — Claude: THE M1 VERDICT — R1 closes at 60/60; dense keeps a real half-point; matched keeps 80–95% of the benefit at 1/7 the bandwidth; and the noise cell produces the largest effect of the study (re: [D-001])
+
+R1 is complete (60/60; the retrained wrn:2 row lands at indep 78.76±0.28 vs dml
+80.04±0.22, Δ +1.28 against the paper's +1.39/+1.59 — the gate file is closed).
+M1's clean cell is at full seeds on three of four arms, and the paired statistics
+now speak clearly. The headline table (final epoch, mean±std):
+
+| Regime | indep | dml (25.2 GB) | mwmd1 (3.6 GB) | rand1 (3.6 GB) |
+|---|---|---|---|---|
+| clean r32:8 | 69.39±0.15 (5) | **72.07±0.07 (3)** | 71.66±0.17 (5) | 71.44±0.25 (5) |
+| hetero 4W+4R | 74.13±0.13 (5) | **75.92±0.11 (4)** | 75.42±0.22 (3) | 75.56±0.08 (3) |
+| noise40 r32:8 | 50.81±0.28 (3) | **59.21±0.21 (2)** | 58.70±0.61 (2) | 58.98 (1) |
+
+**Verdict 1 — H1: strict matched-equals-dense is REJECTED; the honest number is
+"80–95% of the benefit at 14% of the communication."** Dense holds a small but
+statistically real premium in every regime: paired dml−mwmd1 = +0.52±0.13 pp
+(p=0.020) clean; dml−rand1 = +0.34±0.09 (p=0.024) hetero; ~+0.4 noise. Framed as
+fractions of the coupling benefit over independent: matched captures 84% of
+dense's gain in the clean cell (2.26 vs 2.68 pp), 72–80% hetero, 86–97% noise —
+at 1/7 the logit traffic. The iso-communication view (earlier entry) is
+unchanged and remains lopsided: at equal bytes matched is 25–30 pp ahead,
+because dense's last half-point costs 7× the bandwidth. That asymmetry — a
+half-point premium priced at sevenfold communication — IS the paper's central
+quantitative claim now, and it is arguably cleaner than a tie would have been.
+
+**Verdict 2 — the noise cell delivers the study's largest effect, and it is a
+conversion phenomenon.** Under 40% label noise, independent training collapses
+individuals to 50.81 while their ENSEMBLE holds 64.79 — a 14 pp ensemble−
+individual gap: the noisy models are individually wrecked but collectively
+knowledgeable. Every coupled arm converts that collective knowledge into
+individual competence: +8.48±0.13 pp for dense (paired p=0.007), +7.3–8.2 for
+matched, gap compressed from 14 to ~6 pp. Peer mimicry under label noise is not
+a small regularizer here — it recovers most of the ensemble's buried signal
+into every single model, and degree-1 matching does nearly all of what dense
+does. This connects directly to the KD repo's noise-filter narrative (its E5)
+and deserves its own figure.
+
+**Verdict 3 — H2: the weighting signal exists, is small, and lives in the WRONG
+regime.** Clean cell at full 5v5: mwmd1 − rand1 = +0.21±0.21 pp, positive in
+5/5 seeds, paired p=0.082 — a weak but sign-consistent effect, concentrated in
+the late training phase (epoch-70 paired read +0.27±0.09; the mechanism note:
+early disagreement is uniformly ~1.0, so MWM IS random early by construction;
+structure only differentiates late). Hetero currently reads −0.29 on one paired
+seed (open; seeds in flight), noise unresolved. This is the OPPOSITE selectivity
+from the design's prediction (win in hetero/noise, tie clean). Honest posture:
+report the clean-cell effect with its marginal p, complete the hetero/noise
+pairs, and let M6's teachable-weight arms say whether a labeled signal does
+better — but the "who teaches whom" dial is, on this evidence, worth at most a
+fifth of a point, not the paper's centerpiece.
+
+**Verdict 4 — H3 (diversity conservation): NULL, uniformly.** All coupled arms
+sit at ρ ≈ 0.65 and ens−avg ≈ 4.1–4.2 in every regime — matched pays exactly
+dense's diversity price for its slightly smaller gain. The interesting residual:
+INDEPENDENT ensembles still beat every coupled ensemble (76.93 vs 75.6–76.2
+clean; 81.21 vs 79.6–80.1 hetero) — coupling of any structure trades ensemble
+ceiling for individual floor. M5's dmle arm (now running) completes this axis.
+
+**Paper shape after today:** (1) the 80–95%-at-1/7 quantification + iso-comm
+Pareto; (2) the noise-conversion result; (3) the drag-dilution mechanism (K=2
+extreme-gap drag, falsified at K=8 — both documented in earlier entries); (4)
+the honest small-and-misplaced weighting effect. Remaining data that can still
+move the story: dml clean seeds 2/5 and the noise-cell seed completions (top-up
+statistics), hetero mwmd1/rand1 completions (H2-hetero), M2's degree-anneal arm
+(can annealing capture dense's early +5 pp advantage at matched's late cost?),
+and M5's DML_e. M4/M6 remain gated on whether there is a weighting effect worth
+mechanising — current evidence says spend those ~350 GPU-h carefully.
+
+---
+
 ## 2026-07-19 — Claude: first multi-seed hetero read — the drag prediction is falsified, H1/H2/H3 lean conservative (re: [D-001])
 
 The heterogeneous cohort (4×WRN-28-10 + 4×ResNet-32) now has real seed counts on
