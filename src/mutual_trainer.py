@@ -410,6 +410,16 @@ class MutualTrainer:
                               self, "_preempt_requested", True))
         if cfg.resume and os.path.exists(self.ckpt_path):
             self._load_checkpoint()
+        if self.start_epoch >= cfg.epochs:
+            # Checkpoint says the run already finished. If the metrics CSV
+            # is nonetheless incomplete (e.g. rows lost to the [D-006]
+            # orphaned-writer incident), resume CANNOT restore them — the
+            # loop below has nothing to train. Deleting the checkpoint
+            # forces a clean retrain.
+            print(f"WARNING | {cfg.run_id} | checkpoint is at epoch "
+                  f"{self.start_epoch - 1} (>= --epochs {cfg.epochs}): "
+                  f"nothing to do. If the metrics CSV is incomplete, delete "
+                  f"{self.ckpt_path} and rerun.", flush=True)
         if self.start_epoch == 0:
             # Fresh start (including --requeue'd jobs preempted before their
             # first checkpoint): clear any stale rows so the CSVs never carry
