@@ -304,13 +304,69 @@ adversaries; deferred to the v2 anti-Oracle setting). A mwmt1-over-mwmd1 gap wou
 mean labels buy something the label-free weight misses — worth knowing either way,
 since label-free matching is the deployable one.
 
-### M7 (deferred) — Fixed communication graphs
+### M7 — Fixed communication topologies (the expander campaign)
 
-Matching within a fixed graph G (ring / random 3-regular / complete): Idea 2b's
-regime, the expander-vs-ring spectral story, and the edge-coloring round-robin
-baseline. **Harness ready** (`--graph`, masked solvers, unit-tested); scheduled
-after M1–M6 read out, as a second campaign — each arm is a full-length run and the
-interesting cohort sizes are larger (K ≥ 16, where the greedy solver takes over).
+Everything up to M6 varies *who* you talk to each round (matching) at small degree.
+M7 fixes the communication graph for the whole run and asks a different question:
+**does the shape of a fixed sparse network — and in particular its mixing quality
+(spectral gap) — change what the cohort learns?** Each model distills from its fixed
+graph neighbours (equal weight α = 1/deg, no rematching); the `topology` arm.
+
+A design note that sets the scale. The whole appeal of an expander is that a random
+d-regular graph keeps a large spectral gap as the cohort grows, while every
+structured graph's gap collapses like 1/N². But that separation is a *large-N*
+phenomenon. Measured gaps (1 − λ₂ of the normalized adjacency):
+
+| N | ring(2) | ladder(3) | rand-3reg | ×  | latticeK4(4) | rand-4reg | ×   |
+|---|---------|-----------|-----------|----|--------------|-----------|-----|
+| 12 | 0.134 | 0.333 | 0.279 | 0.84 | 0.317 | 0.372 | 1.18 |
+| 24 | 0.034 | 0.089 | 0.132 | 1.48 | 0.084 | 0.254 | 3.03 |
+| 50 | 0.008 | 0.021 | 0.084 | 4.03 | 0.020 | 0.199 | 10.1 |
+| 100 | 0.002 | 0.005 | 0.079 | 14.9 | 0.005 | 0.163 | 33.0 |
+
+At **N = 12 the structured degree-3 graph mixes *better* than the random one** — the
+expander contrast is backwards at this size. A random graph on 12 nodes is simply too
+small to be a good expander. Clean same-degree separation needs N ≥ 50. This splits
+the campaign in two.
+
+**Tier 1 — does a fixed sparse topology recover the dense benefit? (N = 12, current
+infra).** Homogeneous ResNet-32, CIFAR-100, clean + 40 % label noise, 5 seeds. Seven
+arms spanning the degree axis, each distilling from its neighbours:
+
+| arm | degree | neighbours |
+|-----|--------|------------|
+| indep | 0 | — (floor) |
+| matched k=1 | 1 | rotating (MWM, refreshed each epoch) |
+| **cycle** | **2** | **fixed ring** |
+| **matched k=2** | **2** | **rotating (MWM ×2)** |
+| ladder (circular prism) | 3 | fixed, structured |
+| random 3-regular | 3 | fixed, expander draw |
+| dense DML | 11 | all (ceiling) |
+
+The headline cell is **cycle vs matched-k=2**: identical per-round degree (2), so the
+only difference is *fixed* ring neighbours vs partners that *rotate* every epoch. A
+static cycle is a poor mixer (gap 0.134), but rotating matchings make the graph
+*union over epochs* well-mixed — so this isolates whether temporal mixing buys
+anything once instantaneous degree is held equal. If matched-k=2 beats the cycle,
+mixing matters; if they tie, degree is genuinely all there is (consistent with M1/M2).
+The degree-3 pair (ladder vs random-3reg) is expected to *tie* at N = 12 (gaps above)
+— that null is the honest setup for Tier 2, not a failed test. Graph draws vary with
+seed (`--graph_seed = seed`) so the random-regular arm averages over draws, not one
+lucky graph.
+
+Array: 7 arms × 2 noise × 5 seeds = **70 tasks**, `slurm/m7_topology.sbatch`. Full
+A100 (not a slice): at K = 12 the trainer holds all 12 computation graphs live, ~1.5×
+the K = 8 activation memory the slices handled. ~6–8 GPU-h/task.
+
+**Tier 2 — does expansion matter? (N = 50, deferred to the end).** Same-degree
+contrast where the mixing gap is real. Cleanest pair is **degree-4: ring-lattice vs
+random-4-regular** (10× gap separation at N = 50). Lighter backbone (ResNet-20) to
+fit K = 50 in memory. Measure **final accuracy *and* consensus/convergence speed** —
+the round at which mean pairwise prediction-agreement crosses a threshold, and
+area-under the accuracy-vs-epoch curve — because at large N the cycle physically
+*cannot* propagate across the ring within 200 epochs (mixing time ≫ budget) while the
+expander can, so the effect should show in the *trajectory* even if 200-epoch
+endpoints converge. Scaled/specced when Tier 1 reads out.
 
 ---
 

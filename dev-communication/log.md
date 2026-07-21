@@ -10,6 +10,65 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-21 — Task [D-011]: M7 — fixed communication topologies (the expander campaign)
+
+New campaign, spec in experiments.md §3.M7. Everything up to M6 varied *who* you
+talk to each round (matching) at small degree. M7 fixes the communication graph for
+the whole run: each model distills from its fixed graph neighbours (equal weight,
+no rematching — the new `topology` arm), and asks whether the *shape* of a sparse
+network changes what the cohort learns.
+
+**Design-critical finding that split the campaign in two.** The appeal of an
+expander is that a random d-regular graph keeps a large spectral gap as the cohort
+grows while structured graphs' gaps collapse like 1/N². But that is a *large-N*
+effect. Measured gaps (1 − λ₂, normalized adjacency):
+
+| N | ring(2) | ladder(3) | rand-3reg | ×  | latticeK4(4) | rand-4reg | ×   |
+|---|---------|-----------|-----------|----|--------------|-----------|-----|
+| 12 | 0.134 | 0.333 | 0.279 | 0.84 | 0.317 | 0.372 | 1.18 |
+| 24 | 0.034 | 0.089 | 0.132 | 1.48 | 0.084 | 0.254 | 3.03 |
+| 50 | 0.008 | 0.021 | 0.084 | 4.03 | 0.020 | 0.199 | 10.1 |
+| 100 | 0.002 | 0.005 | 0.079 | 14.9 | 0.005 | 0.163 | 33.0 |
+
+At **N=12 the structured degree-3 graph mixes *better* than the random one** (ratio
+< 1) — a random graph on 12 nodes is too small to be a good expander. So an
+N=12 "cycle vs random-3-regular" comparison does NOT test expansion; that needs
+N ≥ 50.
+
+**Tier 1 (this batch, `slurm/m7_topology.sbatch`, run_tag d011) — does a fixed
+sparse topology recover the dense benefit?** Homogeneous ResNet-32, K=12,
+CIFAR-100, clean + 40% noise, 5 seeds. 7 arms along the degree axis: indep(0),
+matched-k1(1, rotating), **cycle(2, fixed)**, **matched-k2(2, rotating)**,
+prism/ladder(3, fixed structured), random-3reg(3, fixed expander draw,
+graph_seed=seed), dml(11, dense). **Headline cell: cycle vs matched-k2** — identical
+per-round degree (2), so the only difference is *fixed* ring neighbours vs partners
+that *rotate* every epoch. A static cycle is a poor mixer (gap 0.134) but rotating
+matchings make the graph *union over epochs* well-mixed; this isolates whether
+temporal mixing buys anything once instantaneous degree is held equal. If
+matched-k2 > cycle, mixing matters; if they tie, degree is all there is (consistent
+with M1/M2). The degree-3 pair (ladder vs rand-3reg) is *expected to tie* at N=12
+(gaps above) — that null is the honest setup for Tier 2, not a failed test.
+
+70 tasks = 7 arms × 2 noise × 5 seeds. **Full A100, not a MIG slice**: at K=12 the
+trainer holds all 12 computation graphs live (~1.5× the K=8 activation memory the
+slices handled). Own run_tag **d011** so the dml/mwmd1 K=12 cells don't collide with
+M3's cohort-scaling cells.
+
+**Tier 2 (deferred to the end) — does expansion matter?** Same-degree contrast at
+N=50 where the gap is real: degree-4 ring-lattice vs random-4-regular (10× gap
+separation). Lighter backbone (ResNet-20) for K=50 memory. Measure final accuracy
+*and* consensus/convergence SPEED (round at which pairwise prediction-agreement
+crosses a threshold; area-under accuracy-vs-epoch) — at large N the cycle physically
+cannot propagate across the ring within 200 epochs while the expander can, so the
+effect should show in the trajectory even if endpoints converge. Specced when
+Tier 1 reads out.
+
+Launch (after `python tools/stage_data.py cifar100` on a login node):
+`sbatch slurm/m7_topology.sbatch`. Recovery: `IDS=$(python tools/incomplete.py m7);
+[ -n "$IDS" ] && sbatch --array=$IDS slurm/m7_topology.sbatch`.
+
+---
+
 ## 2026-07-21 — Note [D-010]: (minor, future) our classification ensembles favor INDEPENDENT training — a caveat to revisit, not a headline
 
 Parking an observation for later; it is NOT load-bearing for the paper's spine
