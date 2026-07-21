@@ -293,6 +293,46 @@ class TestPreemption:
         assert [r["epoch"] for r in rows] == ["0", "1", "2", "3", "4"]
 
 
+class TestTopology:
+    """Static-topology arm: each model distills from ALL its fixed graph
+    neighbours, set once, never refreshed."""
+
+    def make(self, tmp_path, K, graph, **kw):
+        slots = make_slots(K, seed=3)
+        tl = make_loader(32, seed=10)
+        vl = make_loader(16, seed=11)
+        cfg = base_cfg(tmp_path, arm="topology", graph=graph, **kw)
+        return MutualTrainer(cfg, slots, tl, vl, vl, num_classes=N_CLS,
+                             n_valid=16)
+
+    def test_teachers_are_graph_neighbours(self, tmp_path):
+        t = self.make(tmp_path, 6, "ring")   # 0-1-2-3-4-5-0
+        # every node has its two cycle neighbours, alpha = 1/2, symmetric
+        for i in range(6):
+            partners = {j for j, _ in t.teachers[i]}
+            assert partners == {(i - 1) % 6, (i + 1) % 6}
+            assert all(abs(a - 0.5) < 1e-9 for _, a in t.teachers[i])
+        assert t._degree() == 2
+
+    def test_prism_degree_and_static(self, tmp_path):
+        t = self.make(tmp_path, 12, "prism")
+        assert t._degree() == 3
+        assert not t._refresh_due(0)          # topology never refreshes
+        before = [list(x) for x in t.teachers]
+        t.train()
+        assert [list(x) for x in t.teachers] == before  # unchanged
+
+    def test_comm_scales_with_degree_no_matcher_cost(self, tmp_path):
+        t = self.make(tmp_path, 12, "rregular:3", epochs=1)
+        t.train()
+        assert t.comm_floats_cum == pytest.approx(3 * 32 * N_CLS)
+        assert t.comm_matcher_ints_cum == 0   # fixed graph => no probes
+
+    def test_requires_graph(self, tmp_path):
+        with pytest.raises(ValueError):
+            self.make(tmp_path, 6, "complete")   # topology needs a real graph
+
+
 def test_parse_k_anneal():
     assert parse_k_anneal("") == []
     assert parse_k_anneal("120:1,0:3,60:2") == [(0, 3), (60, 2), (120, 1)]

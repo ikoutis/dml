@@ -162,17 +162,58 @@ def edge_weights(mode: str, preds: Optional[np.ndarray],
 # Communication graphs (Idea 2b: matching restricted to E(G))
 # ---------------------------------------------------------------------------
 
-def build_graph_mask(kind: str, K: int, seed: int = 0) -> np.ndarray:
-    """Boolean (K, K) adjacency; True = edge allowed. 'complete', 'ring', or
-    'rregular:d' (random d-regular via the configuration model, seeded)."""
+def _is_connected(mask: np.ndarray) -> bool:
+    K = mask.shape[0]
+    seen = {0}
+    stack = [0]
+    while stack:
+        u = stack.pop()
+        for v in np.nonzero(mask[u])[0]:
+            if v not in seen:
+                seen.add(int(v))
+                stack.append(int(v))
+    return len(seen) == K
+
+
+def build_graph_mask(kind: str, K: int, seed: int = 0,
+                     ensure_matchable: bool = False) -> np.ndarray:
+    """Boolean (K, K) adjacency; True = edge present.
+
+    Static communication topologies for the expander experiment (M7):
+      'complete'    full graph (degree K-1).
+      'ring'/'cycle'  Hamiltonian cycle C_K (degree 2, poor mixer, diam K/2).
+      'prism'       circular ladder Y_{K/2} = C_{K/2} x K_2 (degree 3, poor
+                    mixer, small spectral gap) — the SAME-DEGREE control for
+                    the random 3-regular expander. Requires even K.
+      'rregular:d'  random d-regular (configuration model, seeded) — an
+                    expander w.h.p.; near-Ramanujan for small d.
+      'latticeK4'   degree-4 ring lattice (each node wired to its 2 nearest
+                    neighbours on each side) — poor-mixing degree-4 control
+                    for the random 4-regular expander.
+    """
     mask = np.zeros((K, K), dtype=bool)
     if kind == "complete":
         mask[:] = True
         np.fill_diagonal(mask, False)
         return mask
-    if kind == "ring":
+    if kind in ("ring", "cycle"):
         for i in range(K):
             mask[i, (i + 1) % K] = mask[(i + 1) % K, i] = True
+        return mask
+    if kind == "prism":
+        if K % 2 != 0:
+            raise ValueError(f"prism (circular ladder) needs even K, got {K}.")
+        n = K // 2  # two n-cycles 0..n-1 and n..2n-1, plus rungs i—(i+n)
+        for i in range(n):
+            mask[i, (i + 1) % n] = mask[(i + 1) % n, i] = True
+            a, b = n + i, n + (i + 1) % n
+            mask[a, b] = mask[b, a] = True
+            mask[i, n + i] = mask[n + i, i] = True
+        return mask
+    if kind == "latticeK4":
+        for i in range(K):
+            for off in (1, 2):
+                mask[i, (i + off) % K] = mask[(i + off) % K, i] = True
         return mask
     if kind.startswith("rregular:"):
         d = int(kind.split(":", 1)[1])
@@ -191,18 +232,41 @@ def build_graph_mask(kind: str, K: int, seed: int = 0) -> np.ndarray:
                 m[a, b] = m[b, a] = True
             if not ok:
                 continue
-            # A d-regular graph need not admit a perfect matching (e.g. a
-            # disconnected component with an odd cut) — resample until the
-            # mask can actually host matched arms.
-            if K % 2 == 0:
+            # Always require connectivity (a disconnected topology would
+            # split the cohort into non-communicating sub-cohorts).
+            if not _is_connected(m):
+                continue
+            # Only matched-within-graph arms need a perfect matching to
+            # exist; the static-topology arm does not. This check uses the
+            # exact solver, reliable only for K <= 16.
+            if ensure_matchable and K % 2 == 0 and K <= _EXACT_MAX_K:
                 try:
                     max_weight_perfect_matching(np.ones((K, K)), m)
                 except RuntimeError:
                     continue
             return m
-        raise RuntimeError(f"Could not sample a perfectly-matchable "
+        raise RuntimeError(f"Could not sample a connected "
                            f"{d}-regular graph on {K} nodes.")
     raise ValueError(f"Unknown graph '{kind}'.")
+
+
+def graph_neighbors(mask: np.ndarray) -> List[List[int]]:
+    """Per-node neighbour lists from an adjacency mask (for static-topology
+    all-neighbour distillation)."""
+    return [list(np.nonzero(mask[i])[0]) for i in range(mask.shape[0])]
+
+
+def graph_spectral_gap(mask: np.ndarray) -> float:
+    """1 - lambda_2 of the normalized adjacency (random-walk) — a scalar
+    mixing quality: ~0 for a cycle, bounded away from 0 for an expander.
+    Logged once per run so figures can label each topology by its mixing."""
+    deg = mask.sum(axis=1)
+    if (deg == 0).any():
+        return float("nan")
+    d_inv_sqrt = 1.0 / np.sqrt(deg)
+    norm = (mask * d_inv_sqrt[:, None]) * d_inv_sqrt[None, :]
+    eig = np.sort(np.linalg.eigvalsh(norm))[::-1]
+    return float(1.0 - eig[1])
 
 
 # ---------------------------------------------------------------------------

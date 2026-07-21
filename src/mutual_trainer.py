@@ -55,7 +55,7 @@ from .cohort import Slot
 from .metrics import (CsvWriter, evaluate_cohort, mean_pairwise_disagreement,
                       mean_pairwise_error_correlation)
 
-ARMS = ("indep", "dml", "matched")
+ARMS = ("indep", "dml", "matched", "topology")
 
 
 @dataclass
@@ -176,6 +176,26 @@ class MutualTrainer:
             w = 1.0 / max(self.K - 1, 1)
             self.teachers = [[(j, w) for j in range(self.K) if j != i]
                              for i in range(self.K)]
+
+        # Static-topology arm (M7): each model distills from ALL its fixed
+        # graph neighbours (averaged-neighbour target, alpha = 1/degree),
+        # set once and never refreshed — decentralized, no coordinator, no
+        # matcher probes. The graph is fixed by cfg.graph (+ graph_seed for
+        # the random-regular expanders).
+        self.graph_degree = 0
+        if cfg.arm == "topology":
+            if self.graph_mask is None:
+                raise ValueError("topology arm needs --graph != complete "
+                                 "(use ring/prism/rregular:d/latticeK4)")
+            neigh = mt.graph_neighbors(self.graph_mask)
+            degs = {len(n) for n in neigh}
+            self.teachers = [[(j, 1.0 / len(n)) for j in n] if n else []
+                             for n in neigh]
+            self.graph_degree = self.graph_mask.sum(axis=1).max()
+            self._spectral_gap = mt.graph_spectral_gap(self.graph_mask)
+            if cfg.verbose:
+                print(f"[*] topology '{cfg.graph}': degrees={sorted(degs)}, "
+                      f"spectral_gap={self._spectral_gap:.4f}", flush=True)
 
         # Cumulative per-model communication counters (uniform across the
         # cohort — perfect matchings and dense coupling are degree-regular).
@@ -319,6 +339,8 @@ class MutualTrainer:
             return 0
         if self.cfg.arm == "dml":
             return self.K - 1
+        if self.cfg.arm == "topology":
+            return int(self.graph_degree)
         return len(self.current_matchings)
 
     def _comm_epoch(self, n_seen: int) -> Dict[str, float]:
@@ -449,9 +471,7 @@ class MutualTrainer:
                 "lr": lr_this_epoch,
                 # The degree actually in effect this epoch (matchings may
                 # lag the k_anneal schedule when rematch_every_epochs > 1).
-                "k_current": (len(self.current_matchings)
-                              if cfg.arm == "matched" else
-                              (self.K - 1 if cfg.arm == "dml" else 0)),
+                "k_current": self._degree(),
                 "epoch_seconds": round(time.time() - tic, 2),
                 "avg_test_acc": float(np.mean(test["accs"])),
                 "std_test_acc": float(np.std(test["accs"])),

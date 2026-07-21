@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cohort", default="resnet32:2",
                    help="e.g. 'resnet32:8' or 'wrn28x10:4,resnet32:4'")
     p.add_argument("--arm", default="dml",
-                   choices=["indep", "dml", "matched"])
+                   choices=["indep", "dml", "matched", "topology"])
     p.add_argument("--target", default="peers", choices=["peers", "ensemble"],
                    help="dml arm only: 'ensemble' = DML_e (averaged target)")
     p.add_argument("--arm_label", default="",
@@ -109,6 +109,9 @@ def auto_arm_label(args) -> str:
         return "indep"
     if args.arm == "dml":
         return "dmle" if args.target == "ensemble" else "dml"
+    if args.arm == "topology":
+        # e.g. topo-ring, topo-prism, topo-rregular3 (':' stripped)
+        return "topo-" + args.graph.replace(":", "")
     label = f"{_WEIGHT_CODE[args.match_weight]}{args.k_matchings}"
     if args.match_weight == "teachable" and args.kappa != 1.0:
         label += f"-k{args.kappa:g}"

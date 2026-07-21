@@ -285,3 +285,40 @@ class TestGraphs:
     def test_complete(self):
         m = mt.build_graph_mask("complete", 5)
         assert m.sum() == 5 * 4
+
+    def test_cycle_alias(self):
+        assert (mt.build_graph_mask("cycle", 8)
+                == mt.build_graph_mask("ring", 8)).all()
+
+    def test_prism_is_3regular(self):
+        m = mt.build_graph_mask("prism", 12)
+        assert (m.sum(axis=0) == 3).all()
+        assert (m == m.T).all()
+        assert not m.diagonal().any()
+        with pytest.raises(ValueError):
+            mt.build_graph_mask("prism", 11)  # needs even K
+
+    def test_latticeK4_is_4regular(self):
+        m = mt.build_graph_mask("latticeK4", 12)
+        assert (m.sum(axis=0) == 4).all()
+        assert (m == m.T).all()
+
+    def test_graph_neighbors(self):
+        m = mt.build_graph_mask("ring", 4)   # 0-1-2-3-0
+        nb = mt.graph_neighbors(m)
+        assert sorted(nb[0]) == [1, 3]
+        assert sorted(nb[1]) == [0, 2]
+
+    def test_spectral_gap_expander_beats_cycle(self):
+        # An expander must have a strictly larger spectral gap than a cycle.
+        gap_ring = mt.graph_spectral_gap(mt.build_graph_mask("ring", 12))
+        gap_prism = mt.graph_spectral_gap(mt.build_graph_mask("prism", 12))
+        gap_rand = mt.graph_spectral_gap(
+            mt.build_graph_mask("rregular:3", 12, seed=1))
+        assert gap_rand > gap_prism > gap_ring >= 0
+        # the expander mixes markedly better than the cycle at equal-ish size
+        assert gap_rand > 2 * gap_ring
+        # and the cycle's gap shrinks with N (1 - cos(2pi/N)), motivating
+        # larger cohorts for a clean expansion separation
+        assert (mt.graph_spectral_gap(mt.build_graph_mask("ring", 24))
+                < mt.graph_spectral_gap(mt.build_graph_mask("ring", 12)))
