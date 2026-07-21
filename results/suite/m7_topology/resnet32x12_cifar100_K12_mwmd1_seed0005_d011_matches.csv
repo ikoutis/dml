@@ -1,0 +1,13 @@
+run_id,run_tag,epoch,layer,i,j,arch_i,arch_j,weight,penalized_weight,weight_mode,solver,k
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,0,0,0,1,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,0,0,2,3,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,0,0,4,5,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,0,0,6,7,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,0,0,8,9,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,0,0,10,11,resnet32,resnet32,1.000000,1.000000,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,1,0,0,4,resnet32,resnet32,0.939800,0.939800,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,1,0,1,7,resnet32,resnet32,0.824000,0.824000,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,1,0,2,10,resnet32,resnet32,0.962000,0.962000,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,1,0,3,11,resnet32,resnet32,0.916400,0.916400,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,1,0,5,6,resnet32,resnet32,0.940400,0.940400,disagreement,exact,1
+resnet32x12_cifar100_K12_mwmd1_seed0005_d011,d011,1,0,8,9,resnet32,resnet32,0.858600,0.858600,disagreement,exact,1
