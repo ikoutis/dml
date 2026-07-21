@@ -10,6 +10,45 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-21 — Note [D-010]: (minor, future) our classification ensembles favor INDEPENDENT training — a caveat to revisit, not a headline
+
+Parking an observation for later; it is NOT load-bearing for the paper's spine
+and should not be over-weighted until the robustness checks below are done.
+
+Measured (softmax-probability-averaged ensemble, final epoch, 5 seeds):
+
+| setting | indep ens | dense DML ens | matched ens |
+|---|---|---|---|
+| K=2 clean | 73.15 | 72.85 | — |
+| K=8 clean | 76.93 | 76.06 | 75.6–75.8 |
+| K=8 hetero | 81.21 | 80.11 | 79.6 |
+| K=8 noise40 | 64.85 | **65.66** | 64.8 |
+
+So on clean data the INDEPENDENT ensemble wins, and the gap widens with cohort
+size (0.3 pp at K=2 → ~0.9 pp at K=8). Mechanism is the measured diversity loss
+(pairwise error-corr 0.56 indep → 0.65 coupled; ensemble-minus-individual boost
++7.5 → +4.0). The noise cell flips (coupling's individual rescue outweighs the
+diversity loss). This is internally consistent and physically sensible, not a
+bug.
+
+Why this is only a caveat, not a contradiction of the DML paper: the paper's
+ensemble claim (its Fig. 2b) is on Market-1501 (retrieval, mAP, FEATURE-
+CONCATENATION ensemble, cohorts ≤5), and it reports NO ensemble numbers for
+CIFAR-100 classification. Different task, metric, ensemble construction, and
+scale — so "DML ensemble > indep ensemble" simply may not transfer to
+softmax-averaged classification ensembles at K=8, and our data says it doesn't.
+
+Before this is quotable, two cheap checks (deferred): (1) robustness to ensemble
+METHOD — log-prob averaging and majority vote, not just prob-averaging (the
+paper used yet another method); needs a small offline script over saved
+predictions. (2) the cohort-size trend cleanly — M3 (K=4, K=12) will fill in
+between the K=2 and K=8 points to show the gap widening. Until then: report the
+single-model story (matched ≫ independent) as the deliverable; treat the
+ensemble reversal as a measured side-observation with stated scope, not a claim
+against the paper.
+
+---
+
 ## 2026-07-21 — Claude: M1b + M2 + M5 all in at full seeds — selection is definitively flat, degree is a smooth dial, DML_e ties DML (re: [D-001])
 
 Three experiments completed 5/5. Together they close the "does coupling STRUCTURE
