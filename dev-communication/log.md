@@ -10,6 +10,80 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-21 — Claude: M1b + M2 + M5 all in at full seeds — selection is definitively flat, degree is a smooth dial, DML_e ties DML (re: [D-001])
+
+Three experiments completed 5/5. Together they close the "does coupling STRUCTURE
+matter" question, and the answer is remarkably uniform: **the benefit of mutual
+learning is insensitive to almost every structural choice except how many
+partners you have.**
+
+**M1b — the per-class second shot at H2: NULL, decisively.** Despite carrying ~5x
+the matrix structure of scalar disagreement ([D-008]), per-class matching does not
+convert it to accuracy:
+
+| regime | rand1 | mwmd1 | mwmpc1 | mwmpc1−rand1 |
+|---|---|---|---|---|
+| clean | 71.44 | 71.66 | 71.54 | +0.10±0.35 pp (p=0.56) |
+| noise | 58.69 | 58.48 | 58.45 | −0.24±0.53 pp (p=0.37) |
+
+No selection signal — scalar or per-class — beats random matching by a significant
+margin in any regime at full seeds. The lone whisper is clean mwmd1−rand1 =
++0.21±0.21 (p=0.08), which does not survive at per-class. So the who-teaches-whom
+verdict is now robust and, honestly, clean: **degree-1 accuracy is insensitive to
+WHICH partner you pick.** The 5x structure in the per-class matrix is real but
+accuracy-irrelevant — a strong, quotable null (the modularity prediction, confirmed
+at two granularities).
+
+**M2 — the degree dial (H5): smooth, monotonic, no interior optimum; annealing is
+the efficiency win.** avg test acc, resnet32:8 clean:
+
+| arm | k | avg | comm/model | ens−avg gap | ρ |
+|---|---|---|---|---|---|
+| mwmd1 | 1 | 71.66 | 3.6 GB | 4.05 | 0.657 |
+| mwmd2 | 2 | 71.76 | 7.2 GB | 4.09 | 0.652 |
+| mwmd3 | 3 | 71.84 | 10.8 GB | 4.22 | 0.653 |
+| anneal 3→2→1 | ~1.9 avg | **71.87** | ~6.8 GB | 4.00 | 0.655 |
+| dml | 7 | 72.04 | 25.2 GB | 4.02 | 0.652 |
+
+Accuracy rises smoothly and monotonically with degree (k=1→dense, +0.38 pp total);
+none of the k>1 steps is individually significant (p=0.34/0.25 vs k=1) but the
+trend is clean and dense is the ceiling. H5's predicted interior optimum k*≈2–3 is
+WRONG — there is no peak, just diminishing returns. The real result is
+**degree annealing**: 3→2→1 reaches 71.87 — above every fixed k, ~55% of the way
+from k=1 to dense — while averaging ~1.9 partners (≈6.8 GB) instead of dense's 7
+(25.2 GB). So annealing captures most of the degree benefit at ~27% of dense's
+extra communication: the one place structure buys something, and it's on the
+degree axis, not the selection axis. (mwmd2 vs mwmd2-unif = +0.08, p=0.40:
+weight-proportional vs uniform KL alphas also doesn't matter — another flat knob.)
+Diversity is flat across all degrees (ρ≈0.65, gap≈4.0–4.2), so H3 is null here too.
+
+**M5 — DML_e (averaged target) TIES DML: an honest negative for a design axiom.**
+dml 72.04 vs dmle 72.14; dml−dmle = −0.10±0.15 pp (p=0.23) — indistinguishable, if
+anything dmle marginally ahead. The DML paper's §3.6 finding (averaging peer targets
+is WORSE than separate KLs) does NOT reproduce at K=8 on CIFAR-100/ResNet-32. This
+was the stated justification for never-averaging peeled KL terms; it does not hold
+in our setting. It is moot for the matched arms (degree-1 has a single teacher, and
+M2's mwmd2-vs-unif already showed target combination is flat), but it should be
+reported honestly rather than assumed.
+
+**The synthesis, now firm across R1+M1+M1b+M2+M5:** mutual-learning benefit is a
+function of DEGREE and essentially nothing else about the coupling structure —
+partner selection (M1b, M1 rand-vs-mwm), target combination (M5, M2-unif), and
+diversity cost (H3, flat everywhere) are all null. Degree-1 random matching
+captures ~85–95% of dense's individual-accuracy gain at 1/7 the communication;
+degree annealing captures more at ~1.9/7. The paper's spine is the communication–
+degree tradeoff and the "selection is flat" null, NOT a max-weight-matching win.
+
+**Bearing on remaining runs:** M6 (more selection signals: teachable, accgap) is now
+very likely null — the diagnostic already flagged teachable/accgap as near-zero-mean
+in these cohorts, and M1b killed the richest selection signal; I'd deprioritize M6's
+~330 GPU-h unless the hetero cell specifically is wanted. M4 (rotation) and M3
+(cohort scaling) remain worth it — scaling is a headline axis, rotation tests a
+distinct (persistence) mechanism. Hetero per-class is now low-value given the clean/
+noise per-class null.
+
+---
+
 ## 2026-07-20 — Note [D-008]: signal-structure diagnostic run — per-class is the only richer signal with structure; launching a per-class arm (M1b) to test it
 
 `tools/signal_structure.py` was run on completed checkpoints (results/analysis/).
