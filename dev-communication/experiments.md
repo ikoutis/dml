@@ -388,6 +388,25 @@ same-degree spreads < 0.5 pp here AND in the m7 noise tier AND in the clusters
 probe ⇒ degree-is-everything is capacity- and connectivity-invariant; fold into
 paper 1 and close the direction.
 
+**M9 — controlled epidemiology ([D-015], `slurm/m9_zombie.sbatch`, tag d015).**
+[D-014] observed failure contagion in the wild (LeNet: spontaneous deaths →
+graph-structured cascades; quarantine in disconnected cliques; wave speed tracks
+mixing). M9 measures the dose-response law deliberately: implant ONE dead model
+(`--zombie_slot 0`: frozen, exactly-uniform logits — what a collapsed model
+converges to; never trains; excluded from per-arch means via arch='zombie') in a
+healthy ResNet-32 K=12 cohort, CIFAR-100 clean, 5 seeds. Healthy slots keep
+bit-identical inits with the M7 d011 no-zombie anchors at equal seed → per-model
+paired comparisons. 7 arms × 5 seeds = 35 tasks: ring / prism / rregular:3 /
+clusters:4 (zombie sealed in clique 0 — cliques 1–2 are an internal no-exposure
+control) / matched-random k=1 / k=2 / dense. Matched arms use RANDOM weights (MWM
+would glue itself to the maximally-disagreeing zombie and confound exposure).
+Registered predictions: no host deaths (R0 < 1 — damage without transmission);
+per-victim damage ∝ the zombie's α in the victim's KD mix (ring ½ > prism/rreg3 ⅓
+≫ dense 1/11); damage decays with graph distance; clusters cliques 1–2 ≈ anchors.
+Counter-hypothesis with equal standing: KL-to-uniform is a confidence penalty
+(entropy regularizer), so victims may be unharmed or mildly HELPED — in which case
+[D-014]'s contagion required fragile hosts (a susceptibility threshold exists).
+
 **Tier 2 — does expansion matter? (N = 50, deferred to the end).** Same-degree
 contrast where the mixing gap is real. Cleanest pair is **degree-4: ring-lattice vs
 random-4-regular** (10× gap separation at N = 50). Lighter backbone (ResNet-20) to

@@ -10,6 +10,60 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-22 — Task [D-015]: M9 — controlled epidemiology (the zombie implant)
+
+Turning [D-014]'s accident into a measured dose-response law. One cohort slot is
+replaced by a **dead model**: frozen, emitting exactly-uniform logits (zero
+logits — the fixed point an actually-collapsed model converges to), never
+training, participating fully in whatever communication protocol the arm runs.
+Host cohort: ResNet-32 × 12 (11 healthy + zombie at slot 0), CIFAR-100 clean,
+5 seeds — hosts that have never died spontaneously anywhere in the suite, so any
+damage is CAUSED by the implant.
+
+**Design points.**
+- The zombie is implanted AFTER the cohort is built and consumes no RNG, so
+  healthy slots 1–11 keep bit-identical inits and batch order with the M7 d011
+  no-zombie anchors at equal seed: every readout is a per-model PAIRED
+  comparison (model i with zombie vs the same model i without).
+- arch='zombie' keeps it out of per-arch mean columns; new
+  `avg_test_acc_healthy` / `avg_val_acc_healthy` columns; the ensemble needs no
+  healthy variant (a uniform member shifts all classes equally — argmax-
+  invariant, verified by test).
+- Matched arms use RANDOM weights: disagreement-MWM would deterministically glue
+  itself to the zombie (it maximally disagrees with everyone) and confound the
+  exposure schedule.
+- Arms (7 × 5 seeds = 35 tasks, `sbatch slurm/m9_zombie.sbatch`, slices):
+  ring (zombie α=½ on 2 fixed victims) · prism (α=⅓ on 3) · rregular:3 (α=⅓,
+  short paths, graph_seed=seed) · clusters:4 (zombie sealed in clique 0;
+  cliques 1–2 = same-run no-exposure control) · matched-random k=1 (full-dose
+  α=1 victim, rotating ~1/11 of rounds) · k=2 · dense (α=1/11, everyone, every
+  round).
+
+**Registered predictions.**
+1. No healthy-host deaths (R0 < 1): ResNet+BN hosts degrade at most, and do NOT
+   become noise emitters — damage without transmission. ([D-014]'s LeNet had
+   R0 > 1; the difference is host robustness — the susceptibility axis.)
+2. Per-victim damage ordered by the zombie's weight in the victim's KD mix:
+   ring (½) > prism/rreg3 (⅓) ≫ dense (1/11) ≈ matched-k1 time-average (1/11).
+3. Damage decays with graph distance (distance-2 ≈ 0 if R0 ≈ 0) — the ring's
+   spatial damage profile is the cleanest readout, and it needs no cross-run
+   baseline at all.
+4. clusters:4: cliques 1–2 statistically indistinguishable from anchors.
+**Counter-hypothesis, equal standing:** KL(student ‖ uniform) is exactly a
+confidence penalty (entropy regularization, à la label smoothing) — on clean
+data with strong hosts the "poison" may be neutral or mildly HELPFUL. Then
+[D-014]'s contagion required fragile hosts, i.e. the epidemic has a
+susceptibility threshold — also a publishable shape for the failure-propagation
+story (poison for the weak, medicine for the strong).
+
+Implementation: `_ZombieModel` + `--zombie_slot` (mutual_trainer/run_experiment),
+TestZombie ×7 (uniform emission, never-trains, anchor-init parity, teacher
+wiring, ensemble invariance, matched participation, resume roundtrip), grid
+`m9` (35), suite-grids pinned. An adversarial multi-agent review of the change
+ran before launch; findings and fixes recorded in the reply below this entry.
+
+---
+
 ## 2026-07-22 — Reply [D-014]: M7-L readout — the probe found the DESTRUCTIVE regime: collapse is contagious through the communication graph
 
 M7-L ([D-013], 45/45 complete) did not produce a compressed ladder or an

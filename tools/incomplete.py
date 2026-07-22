@@ -151,6 +151,21 @@ def _m7l(i):  # [D-013] weak-learner probe: lenet:12 ladder + clusters, clean
             + arms[i // 5] + ["--run_tag", "d013"])
 
 
+def _m9(i):  # [D-015] controlled epidemiology: one zombie, resnet32:12, clean
+    arms = [["--arm", "topology", "--graph", "ring"],
+            ["--arm", "topology", "--graph", "prism"],
+            ["--arm", "topology", "--graph", "rregular:3"],
+            ["--arm", "topology", "--graph", "clusters:4"],
+            ["--arm", "matched", "--match_weight", "random",
+             "--k_matchings", "1"],
+            ["--arm", "matched", "--match_weight", "random",
+             "--k_matchings", "2"],
+            ["--arm", "dml"]]
+    return (["--cohort", "resnet32:12", "--zombie_slot", "0",
+             "--seed", str(i % 5 + 1)] + arms[i // 5]
+            + ["--run_tag", "d015"])
+
+
 # exp -> (index->argv, n_tasks, output_dir, sbatch script)
 GRIDS = {
     "r1": (_r1, 60, "results/suite/r1_pairs", "slurm/r1_pairs.sbatch"),
@@ -163,6 +178,7 @@ GRIDS = {
     "m1b": (_m1b, 10, "results/suite/m1_headline", "slurm/m1b_perclass.sbatch"),
     "m7": (_m7, 80, "results/suite/m7_topology", "slurm/m7_topology.sbatch"),
     "m7l": (_m7l, 45, "results/suite/m7l_lenet", "slurm/m7l_lenet.sbatch"),
+    "m9": (_m9, 35, "results/suite/m9_zombie", "slurm/m9_zombie.sbatch"),
 }
 
 

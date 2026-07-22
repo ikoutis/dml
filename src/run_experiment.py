@@ -79,6 +79,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "'rregular:d', or 'clusters:m' (disconnected "
                         "m-cliques)")
     p.add_argument("--graph_seed", type=int, default=0)
+    p.add_argument("--zombie_slot", type=int, default=-1,
+                   help="[D-015] index of an implanted dead (uniform-logit, "
+                        "never-training) cohort member; -1 = none")
     # optimization (DML-paper defaults)
     p.add_argument("--epochs", type=int, default=200)
     p.add_argument("--lr", type=float, default=0.1)
@@ -107,13 +110,14 @@ _WEIGHT_CODE = {"disagreement": "mwmd", "teachable": "mwmt",
 
 
 def auto_arm_label(args) -> str:
+    zomb = f"-zomb{args.zombie_slot}" if args.zombie_slot >= 0 else ""
     if args.arm == "indep":
         return "indep"
     if args.arm == "dml":
-        return "dmle" if args.target == "ensemble" else "dml"
+        return ("dmle" if args.target == "ensemble" else "dml") + zomb
     if args.arm == "topology":
         # e.g. topo-ring, topo-prism, topo-rregular3 (':' stripped)
-        return "topo-" + args.graph.replace(":", "")
+        return "topo-" + args.graph.replace(":", "") + zomb
     label = f"{_WEIGHT_CODE[args.match_weight]}{args.k_matchings}"
     if args.match_weight == "teachable" and args.kappa != 1.0:
         label += f"-k{args.kappa:g}"
@@ -134,7 +138,7 @@ def auto_arm_label(args) -> str:
         label += f"-{args.graph.replace(':', '')}"
     if args.kd_T != 1.0:
         label += f"-T{args.kd_T:g}"
-    return label
+    return label + zomb
 
 
 def compose_run_id(args, arm_label: str) -> str:
@@ -206,6 +210,7 @@ def main() -> None:
         "batch_size": args.batch_size, "base_lr": args.lr,
         "momentum": args.momentum, "weight_decay": args.weight_decay,
         "nesterov": args.nesterov, "graph_seed": args.graph_seed,
+        "zombie_slot": args.zombie_slot,
         "lr_step": args.lr_step, "lr_gamma": args.lr_gamma,
         "kd_T": args.kd_T, "k_matchings": args.k_matchings,
         "k_anneal": args.k_anneal, "match_weight": args.match_weight,
@@ -233,7 +238,8 @@ def main() -> None:
         recency_lambda=args.recency_lambda,
         recency_gamma=args.recency_gamma,
         peel_weighting=args.peel_weighting, graph=args.graph,
-        graph_seed=args.graph_seed, seed=args.seed, device=device,
+        graph_seed=args.graph_seed, zombie_slot=args.zombie_slot,
+        seed=args.seed, device=device,
         output_dir=args.output_dir, checkpoint_every=args.checkpoint_every,
         resume=args.resume, verbose=args.verbose, trap_usr1=True,
         static_row=static_row)

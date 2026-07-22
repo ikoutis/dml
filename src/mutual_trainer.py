@@ -58,6 +58,27 @@ from .metrics import (CsvWriter, evaluate_cohort, mean_pairwise_disagreement,
 ARMS = ("indep", "dml", "matched", "topology")
 
 
+class _ZombieModel(nn.Module):
+    """A dead cohort member for the controlled-epidemiology arm ([D-015]).
+
+    Emits exactly-zero logits — the uniform posterior, which is what an
+    actually-collapsed model converges to ([D-014]) — everywhere it is
+    observed: as a KD teacher, in eval, in the ensemble (where a uniform
+    posterior shifts every class equally and so never changes the argmax).
+    Never trains. The single dummy parameter keeps the per-slot optimizer/
+    scheduler/checkpoint plumbing uniform; its grad stays None, so SGD
+    (including weight decay) never touches it.
+    """
+
+    def __init__(self, num_classes: int):
+        super().__init__()
+        self.num_classes = num_classes
+        self._dummy = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        return x.new_zeros(x.shape[0], self.num_classes)
+
+
 @dataclass
 class TrainerConfig:
     run_id: str
@@ -83,6 +104,8 @@ class TrainerConfig:
     peel_weighting: str = "weight"  # 'weight' | 'uniform'
     graph: str = "complete"
     graph_seed: int = 0
+    zombie_slot: int = -1           # [D-015]: index of the implanted dead
+                                    # model (-1 = none). See _ZombieModel.
     # bookkeeping
     seed: int = 1
     device: str = "cuda"
@@ -126,6 +149,24 @@ class MutualTrainer:
         self.num_classes = num_classes
         self.n_valid = n_valid
         self.device = torch.device(cfg.device)
+
+        # [D-015] controlled epidemiology: replace one slot with a dead
+        # model AFTER the whole cohort is built, so the healthy slots keep
+        # bit-identical inits with the no-zombie anchor runs at equal seed
+        # (the replacement consumes no RNG). arch = 'zombie' automatically
+        # keeps it out of the per-architecture mean columns.
+        if cfg.zombie_slot >= 0:
+            z = cfg.zombie_slot
+            if z >= self.K:
+                raise ValueError(f"zombie_slot {z} out of range for K={self.K}")
+            if cfg.arm == "indep":
+                raise ValueError("zombie in an indep cohort is a no-op; "
+                                 "use the no-zombie anchors instead")
+            zm = _ZombieModel(num_classes).to(self.device)
+            self.slots[z].model = zm
+            self.slots[z].arch = "zombie"
+            self.slots[z].n_params = 0
+            self.models[z] = zm
 
         if cfg.arm == "matched":
             if self.K % 2 != 0:
@@ -303,6 +344,8 @@ class MutualTrainer:
                 probs_sum = probs.sum(dim=0)
 
             for i in range(self.K):
+                if i == cfg.zombie_slot:
+                    continue    # the dead model never trains
                 ce = self.loss_ce(outputs[i], y)
                 kd = outputs[i].new_zeros(())
                 if cfg.arm == "dml" and cfg.target == "ensemble" and self.K > 2:
@@ -494,6 +537,14 @@ class MutualTrainer:
             for arch in sorted({s.arch for s in self.slots}):
                 idx = [s.index for s in self.slots if s.arch == arch]
                 row[f"avg_test_acc_{arch}"] = float(np.mean(test["accs"][idx]))
+            if cfg.zombie_slot >= 0:
+                # Healthy-only means, comparable to the no-zombie anchors.
+                # (The cohort avg columns above include the dead model's
+                # ~chance accuracy; the ensemble is argmax-invariant to a
+                # uniform member, so ensemble columns need no counterpart.)
+                h = [i for i in range(self.K) if i != cfg.zombie_slot]
+                row["avg_test_acc_healthy"] = float(np.mean(test["accs"][h]))
+                row["avg_val_acc_healthy"] = float(np.mean(val["accs"][h]))
             for s in self.slots:
                 i = s.index
                 row[f"model_{i:02d}_arch"] = s.arch
