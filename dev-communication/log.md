@@ -10,6 +10,75 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-22 — Reply [D-014]: M7-L readout — the probe found the DESTRUCTIVE regime: collapse is contagious through the communication graph
+
+M7-L ([D-013], 45/45 complete) did not produce a compressed ladder or an
+amplified one. It produced a phenomenon: **training collapse spreads through
+the communication graph like an epidemic, and the graph's structure — inert
+for 3 weeks of constructive measurements — controls the spread.**
+
+**The raw picture.** Final cohort accuracy is bimodal: ~34–41% (normal for
+LeNet on CIFAR-100) or exactly 1.0% (= 1/100, total collapse). Per-model
+forensics: individual LeNets die spontaneously at a ~7% base rate even in the
+INDEPENDENT arm (BN-less LeNet at lr 0.1; every death in the first LR phase,
+ep 13–49, none after the ep-60 drop). The finding is what coupling does with
+a death: a dead model emits near-uniform logits; its KL pull degrades
+neighbours; if the pull beats the data signal, neighbours die; cascade.
+
+**Full-cohort collapse rates (5 runs/arm):** indep 0/5 · matched-1 1/5 ·
+ring 1/5 · matched-2 3/5 · prism 1/5 · rregular:3 3/5 · dense 3/5 ·
+clusters:2 0/5 · clusters:4 0/5. Three structure contrasts, all in the
+epidemic direction: iso-degree-2 ring 1/5 vs rotating 3/5 (rotation exposes
+everyone to the zombie); iso-degree-3 prism 1/5 vs expander 3/5 (the
+expander's short paths spread it); connected 12/30 vs disconnected 0/10.
+
+**Containment and wave speed.** In clusters runs, deaths NEVER cross clique
+boundaries (e.g. clusters:4 s5: clique1 died 4/4 while cliques 0/2 finished
+at full accuracy — quarantine, literally). Death-wave timing in collapsed
+runs: ring — patient zero ep35, full cohort dead ep45 (10-epoch traversal);
+expander — patient zero ep13, all dead by ep16; rotating matched — 2 epochs.
+Spread time tracks mixing time.
+
+**Survivor-conditional ladder (dead models and collapsed runs excluded):**
+indep 41.03 ± 0.63; every coupled arm at or below it (matched-1 −3.0,
+clusters:2 −3.0, prism −1.6, ring −1.0, dense −0.3, clusters:4 −0.2).
+**The conversion prediction of [D-013] is FALSIFIED at LeNet capacity** —
+coupling buys nothing even conditional on survival; the capacity-cap story
+wins the constructive channel. (Degree-1 arms are worst — a single teacher
+is the noisiest target; averaged multi-teacher targets dilute a bad signal.)
+
+**Verdict vs the registered predictions.** Neither registered story
+anticipated the actual outcome. The structure-program gate asked whether
+same-degree spreads exceed 0.5 pp anywhere; the LeNet leg answered with a
+40-percentage-POINT structure effect — in the destructive channel. This is
+the KD theory's Stage-II "destructive regime," observed in the DML harness:
+a dead model is the steepest competence gradient possible, flow runs down
+it, and structure controls whether the cascade percolates — exactly the
+"structure couples to gradients / controls phase boundaries" picture, in
+inverted sign.
+
+**Honest scope caveat.** The spontaneous deaths are a recipe artifact
+(BN-less LeNet at lr 0.1; a warmup or BN would likely eliminate them). The
+claim is NOT "mutual learning fails for weak learners"; it is "coupling
+turns individual fragility into cohort-level systemic risk, at a rate set
+by the communication structure." Fragility supplies patient zero; the graph
+physics of the spread is the finding — and it needed no artificial
+intervention to appear.
+
+**Follow-ups this opens (not yet scheduled):**
+1. *Controlled epidemiology* — implant one frozen uniform-output model in an
+   otherwise-healthy ResNet cohort and measure spread vs topology/degree/α.
+   Turns the accident into a dose-response curve; connects to the KD repo's
+   anti-Oracle/adversary plans. Cheap (K=12 slices).
+2. *Stabilized rerun* (LeNet + 5-epoch LR warmup) to answer the original
+   [D-013] constructive question cleanly, with deaths removed.
+3. A robustness paragraph for paper 1: dense coupling maximizes systemic
+   risk; sparse/disconnected schemes are the fault-tolerant ones — one more
+   argument for reduced communication, and this one is about failure, not
+   efficiency.
+
+---
+
 ## 2026-07-22 — Task [D-013]: M7-L — the weak-learner probe (LeNet ladder)
 
 Motivation (discussion, same day as [D-012]): ResNets may be strong enough that
