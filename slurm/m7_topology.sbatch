@@ -69,6 +69,7 @@ test -d data/cifar-100-python || {
 i=$SLURM_ARRAY_TASK_ID
 if [ "$i" -ge 70 ]; then
     # [D-012] connectivity probe: clean, disconnected cliques
+    ARM_IDX=$((i / 5))    # 14/15; must be set (set -u, echoed below)
     NOISE=0.0
     SEED=$((i % 5 + 1))
     if [ "$i" -lt 75 ]; then

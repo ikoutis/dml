@@ -10,6 +10,45 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-22 — Reply to [D-015]: pre-launch adversarial review — findings and fixes
+
+A 20-agent adversarial review (5 lenses × independent verification of every
+claim) ran over the zombie change before launch. 15 raw findings, 11 confirmed
+after verification, deduplicating to 6 real issues — all fixed in this commit:
+
+1. **(major) The [D-012] clusters probe never ran.** `m7_topology.sbatch`
+   indices 70–79 left `ARM_IDX` unset in their branch; under `set -u` the echo
+   line kills the task at startup. This explains the absence of clusters
+   anchor results. Fixed (ARM_IDX set); **indices 70–79 must be (re)launched**
+   — M9's clusters:4 arm needs those anchors.
+2. **(live) Resume crash for pre-change runs.** `static_row` carried the new
+   `zombie_slot` key unconditionally; CsvWriter pins fieldnames from an
+   existing CSV's header, so `--resume` of any run whose CSV predates the
+   change (12/80 m7 anchors were incomplete at review time) would train one
+   epoch, then crash at the metrics write — on every requeue. Fixed: the key
+   is emitted only for zombie runs.
+3. `cohort_params` overstated zombie cohorts by one full ResNet-32 (computed
+   before implantation). Fixed: trainable params only.
+4. `disagreement_*`/`rho_*` include the zombie's constant predictions and are
+   not reconstructible post-hoc. Fixed: `*_healthy` counterparts logged.
+5. No guard against `--match_weight disagreement` + zombie (the matcher would
+   deterministically glue to the maximally-disagreeing zombie). Fixed:
+   rejected with an explanatory error; random weights only.
+6. `_m9`/`_m7` recovery grids omitted `--graph_seed` for the rregular:3 arms
+   (harmless for completeness-checking — run_ids don't encode it — but it
+   violates the grids-mirror-the-sbatch contract and would silently rebuild a
+   different graph if the argv were ever used to reproduce a run). Fixed.
+   Plus: zombie's scheduler no longer steps (kills a warning; lr column now
+   reads from the first healthy slot), and the zombie resume test now
+   exercises a mid-run interrupt with bit-level parameter comparison.
+
+Verified clean by the review: RNG/init parity with anchors (bit-identical,
+empirically), training-step math for all arms, ensemble argmax-invariance,
+matched-random uniformity, rho NaN-safety with a constant predictor, comm
+ledger, and the 35-task sbatch↔grid↔run_id mapping. 105 tests pass.
+
+---
+
 ## 2026-07-22 — Task [D-015]: M9 — controlled epidemiology (the zombie implant)
 
 Turning [D-014]'s accident into a measured dose-response law. One cohort slot is

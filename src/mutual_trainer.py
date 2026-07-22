@@ -162,6 +162,12 @@ class MutualTrainer:
             if cfg.arm == "indep":
                 raise ValueError("zombie in an indep cohort is a no-op; "
                                  "use the no-zombie anchors instead")
+            if cfg.arm == "matched" and cfg.match_weight != "random":
+                # Measured weights would glue the matcher to the zombie (it
+                # maximally disagrees with everyone), confounding exposure.
+                raise ValueError("zombie + measured match weights is "
+                                 "confounded; use --match_weight random "
+                                 "([D-015])")
             zm = _ZombieModel(num_classes).to(self.device)
             self.slots[z].model = zm
             self.slots[z].arch = "zombie"
@@ -499,10 +505,15 @@ class MutualTrainer:
             if self._refresh_due(epoch):
                 self._refresh_matching(epoch)
 
-            lr_this_epoch = self.optimizers[0].param_groups[0]["lr"]
+            # lr from the first HEALTHY slot; the zombie's optimizer never
+            # steps, so its scheduler is skipped (silences the step-order
+            # warning and keeps its meaningless lr out of the log).
+            lr_slot = (1 if cfg.zombie_slot == 0 else 0)
+            lr_this_epoch = self.optimizers[lr_slot].param_groups[0]["lr"]
             train_stats = self._train_one_epoch(epoch)
-            for s in self.schedulers:
-                s.step()
+            for i, s in enumerate(self.schedulers):
+                if i != cfg.zombie_slot:
+                    s.step()
 
             val = evaluate_cohort(self.models, self.valid_loader, self.device)
             test = evaluate_cohort(self.models, self.test_loader, self.device)
@@ -538,13 +549,23 @@ class MutualTrainer:
                 idx = [s.index for s in self.slots if s.arch == arch]
                 row[f"avg_test_acc_{arch}"] = float(np.mean(test["accs"][idx]))
             if cfg.zombie_slot >= 0:
-                # Healthy-only means, comparable to the no-zombie anchors.
-                # (The cohort avg columns above include the dead model's
-                # ~chance accuracy; the ensemble is argmax-invariant to a
-                # uniform member, so ensemble columns need no counterpart.)
+                # Healthy-only counterparts, comparable to the no-zombie
+                # anchors. The cohort avg/disagreement/rho columns above
+                # include the dead member (constant predictor) and are NOT
+                # reconstructible post-hoc; the ensemble is argmax-invariant
+                # to a uniform member, so it needs no counterpart.
                 h = [i for i in range(self.K) if i != cfg.zombie_slot]
                 row["avg_test_acc_healthy"] = float(np.mean(test["accs"][h]))
                 row["avg_val_acc_healthy"] = float(np.mean(val["accs"][h]))
+                row["disagreement_test_healthy"] = \
+                    mean_pairwise_disagreement(test["preds"][h])
+                row["rho_test_healthy"] = \
+                    mean_pairwise_error_correlation(test["preds"][h],
+                                                    test["y"])
+                row["disagreement_val_healthy"] = \
+                    mean_pairwise_disagreement(val["preds"][h])
+                row["rho_val_healthy"] = \
+                    mean_pairwise_error_correlation(val["preds"][h], val["y"])
             for s in self.slots:
                 i = s.index
                 row[f"model_{i:02d}_arch"] = s.arch

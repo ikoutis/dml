@@ -210,7 +210,6 @@ def main() -> None:
         "batch_size": args.batch_size, "base_lr": args.lr,
         "momentum": args.momentum, "weight_decay": args.weight_decay,
         "nesterov": args.nesterov, "graph_seed": args.graph_seed,
-        "zombie_slot": args.zombie_slot,
         "lr_step": args.lr_step, "lr_gamma": args.lr_gamma,
         "kd_T": args.kd_T, "k_matchings": args.k_matchings,
         "k_anneal": args.k_anneal, "match_weight": args.match_weight,
@@ -224,8 +223,15 @@ def main() -> None:
         "noise_seed": args.noise_seed, "split_seed": args.split_seed,
         "n_train": info["n_train"], "n_valid": info["n_valid"],
         "n_test": info["n_test"],
-        "cohort_params": sum(s.n_params for s in slots),
+        # Trainable params only: the zombie slot ([D-015]) contributes none.
+        "cohort_params": sum(s.n_params for s in slots
+                             if s.index != args.zombie_slot),
     }
+    if args.zombie_slot >= 0:
+        # Only zombie runs carry this column: emitting it unconditionally
+        # would crash --resume of pre-change runs whose CSV headers (pinned
+        # by CsvWriter) lack it — [D-015] review finding.
+        static_row["zombie_slot"] = args.zombie_slot
 
     cfg = TrainerConfig(
         run_id=run_id, arm=args.arm, arm_label=arm_label, target=args.target,

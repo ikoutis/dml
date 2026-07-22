@@ -417,13 +417,38 @@ class TestZombie:
             self.make(tmp_path, arm="indep")
 
     def test_zombie_resume_roundtrip(self, tmp_path):
-        t = self.make(tmp_path, arm="topology", graph="ring", epochs=2,
-                      checkpoint_every=1)
-        t.train()
+        # Mid-run interrupt: 1 of 2 epochs, then resume and finish. The
+        # resumed cohort's healthy params must match an uninterrupted
+        # 2-epoch run bit-for-bit (same criterion as the healthy-arm
+        # resume test), with the zombie present throughout.
+        t_full = self.make(tmp_path, arm="topology", graph="ring", epochs=2,
+                           checkpoint_every=100, run_id="zfull")
+        t_full.train()
+        t1 = self.make(tmp_path, arm="topology", graph="ring", epochs=1,
+                       checkpoint_every=1, run_id="zpart")
+        t1.train()
         t2 = self.make(tmp_path, arm="topology", graph="ring", epochs=2,
-                       checkpoint_every=1, resume=True)
+                       checkpoint_every=1, resume=True, run_id="zpart")
         t2.train()
-        assert t2.start_epoch == 2   # resumed past the end, no retrain
+        assert t2.start_epoch == 1
+        for i in range(1, 6):
+            for pf, pr in zip(t_full.models[i].parameters(),
+                              t2.models[i].parameters()):
+                assert torch.allclose(pf, pr, atol=1e-6)
+
+    def test_zombie_measured_matching_rejected(self, tmp_path):
+        with pytest.raises(ValueError):
+            self.make(tmp_path, arm="matched", match_weight="disagreement")
+
+    def test_healthy_pairwise_columns(self, tmp_path):
+        t = self.make(tmp_path, arm="topology", graph="ring")
+        final = t.train()
+        for col in ("disagreement_test_healthy", "rho_test_healthy",
+                    "disagreement_val_healthy", "rho_val_healthy"):
+            assert col in final
+        # the healthy disagreement excludes the constant zombie predictor,
+        # so it must differ from (be below) the all-pairs column
+        assert final["disagreement_test_healthy"] <= final["disagreement_test"]
 
 
 def test_parse_k_anneal():
