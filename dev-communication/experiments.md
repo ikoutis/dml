@@ -372,6 +372,22 @@ all); deficits ⇒ the connectivity premium, quantified. Watch the ensemble too 
 disconnection preserves cross-cluster diversity, so the clusters ENSEMBLE may beat
 every connected arm's ([D-010]).
 
+**M7-L — the weak-learner probe ([D-013], `slurm/m7l_lenet.sbatch`, tag d013).**
+ResNets may be too strong to need the collective: the clean-cell coupling gain is
++2.2 pp and structure effects are tenths. The conversion mechanism says the benefit
+scales with the ensemble−individual gap — largest where individuals are weak (the
+noise cell: +8 pp). LeNet (~0.09M params, ReLU/max-pool variant of the KD repo's
+LeNet-5, same wiring, trained under the suite's shared recipe) is architecturally
+what noise makes ResNets behaviorally. Cohort lenet:12, CIFAR-100 clean, 5 seeds,
+9 arms = the full ladder (indep / matched-1 / ring / matched-2 / prism / rreg3 /
+dense) plus both disconnected-clusters cells — the capacity axis of the [D-012]
+connectivity question, 45 cheap tasks. Registered predictions: conversion story ⇒
+indep→dense gain ≥ 2× ResNet's, ring dent and clusters deficits scale up;
+capacity-cap story ⇒ compressed ladder. Kill criterion for the structure program:
+same-degree spreads < 0.5 pp here AND in the m7 noise tier AND in the clusters
+probe ⇒ degree-is-everything is capacity- and connectivity-invariant; fold into
+paper 1 and close the direction.
+
 **Tier 2 — does expansion matter? (N = 50, deferred to the end).** Same-degree
 contrast where the mixing gap is real. Cleanest pair is **degree-4: ring-lattice vs
 random-4-regular** (10× gap separation at N = 50). Lighter backbone (ResNet-20) to

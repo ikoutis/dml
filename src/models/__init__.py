@@ -4,6 +4,7 @@ Architectures follow the DML paper's CIFAR-100 table of networks
 (Zhang et al., CVPR 2018, Table 1):
 
     name        class            params (100 classes)
+    lenet       LeNet-5(ReLU)    ~0.09M   (weak-learner probe, M7-L)
     resnet20    ResNet-20        ~0.28M
     resnet32    ResNet-32        ~0.47M   (the paper's small net)
     resnet56    ResNet-56        ~0.86M
@@ -17,8 +18,10 @@ cohort builder.
 from .resnet_cifar import resnet20, resnet32, resnet56, resnet110
 from .wrn import wrn28x10
 from .mobilenet import mobilenet
+from .lenet import lenet
 
 _REGISTRY = {
+    "lenet": lenet,
     "resnet20": resnet20,
     "resnet32": resnet32,
     "resnet56": resnet56,

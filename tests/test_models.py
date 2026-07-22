@@ -8,6 +8,7 @@ from src.models import available_archs, build_model, count_params
 
 
 @pytest.mark.parametrize("arch,lo,hi", [
+    ("lenet", 0.08e6, 0.1e6),
     ("resnet32", 0.4e6, 0.55e6),
     ("mobilenet", 3.0e6, 3.5e6),
     ("wrn28x10", 36.0e6, 37.0e6),
@@ -17,7 +18,7 @@ def test_param_counts(arch, lo, hi):
     assert lo <= n <= hi, f"{arch}: {n:,} params outside [{lo:,}, {hi:,}]"
 
 
-@pytest.mark.parametrize("arch", ["resnet32", "mobilenet", "wrn28x10"])
+@pytest.mark.parametrize("arch", ["lenet", "resnet32", "mobilenet", "wrn28x10"])
 def test_forward_shape(arch):
     m = build_model(arch, num_classes=100)
     m.eval()
@@ -27,6 +28,6 @@ def test_forward_shape(arch):
 
 
 def test_registry():
-    assert {"resnet32", "mobilenet", "wrn28x10"} <= set(available_archs())
+    assert {"lenet", "resnet32", "mobilenet", "wrn28x10"} <= set(available_archs())
     with pytest.raises(ValueError):
         build_model("nope")

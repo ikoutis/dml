@@ -10,6 +10,42 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-22 — Task [D-013]: M7-L — the weak-learner probe (LeNet ladder)
+
+Motivation (discussion, same day as [D-012]): ResNets may be strong enough that
+the collective barely matters — the clean coupling gain is +2.2 pp and every
+structure effect is tenths, at the edge of seed noise. The conversion mechanism
+([D-011] noise verdict) says the benefit scales with the ensemble−individual gap:
+where individuals are weak, coupling has more to convert (+8 pp under noise).
+LeNet on CIFAR-100 (~0.09M params, ~30-40%% solo) is *architecturally* what label
+noise makes ResNets *behaviorally* — so if topology, connectivity, or mixing bind
+anywhere, this regime should amplify them into the measurable range. It also
+closes the loop with the KD repo, whose experiments ran on LeNet.
+
+**Design.** Cohort lenet:12, CIFAR-100 clean, 5 seeds, 45 tasks
+(`sbatch slurm/m7l_lenet.sbatch`, MIG slices, tag d013): the full M7 ladder —
+indep / matched-1 / ring / matched-2 / prism / rregular:3 / dense — PLUS both
+[D-012] clusters cells, so the connectivity question is asked at two capacity
+levels in one shot. Architecture: LeNet-5 wiring (conv 6→16 5×5, FC 120→84→100)
+with ReLU + max-pool so it trains under the suite's single shared recipe; the KD
+repo's faithful sigmoid variant needs plain SGD at lr ≈ 0.9 and would confound
+capacity with optimization. 90,776 params — 5× under ResNet-20, 400× under WRN.
+
+**Registered predictions.** Conversion story: indep→dense gain ≥ 2× the
+ResNet-32 clean gain; ring dent and clusters deficits scale proportionally;
+large ensemble−individual gap throughout. Capacity-cap story: compressed ladder,
+coupled arms bunched (a weak learner can't absorb peer knowledge either).
+Either outcome is informative.
+
+**Kill criterion for the structure program** (agreed in discussion): if the
+same-degree spreads stay under ~0.5 pp in (a) the m7 noise tier, (b) the
+clusters probe, and (c) this LeNet ladder, then "degree is everything" is
+capacity- and connectivity-invariant — state the invariance in paper 1 and
+close the structure direction. Any crack ⇒ the collective-structure question
+graduates to its own campaign (Tier 2 expander at N ≥ 50 as centerpiece).
+
+---
+
 ## 2026-07-22 — Task [D-012]: the connectivity probe — do DISCONNECTED cliques match connected graphs at equal degree?
 
 Raised in discussion: "degree is everything" has an uncomfortable corollary — a

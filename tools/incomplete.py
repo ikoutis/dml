@@ -135,6 +135,22 @@ def _m7(i):  # [D-011] Tier 1: fixed communication topologies, K=12, clean+noise
              "--seed", str(j % 5 + 1)] + arms[j // 5] + ["--run_tag", "d011"])
 
 
+def _m7l(i):  # [D-013] weak-learner probe: lenet:12 ladder + clusters, clean
+    arms = [["--arm", "indep"],
+            ["--arm", "matched", "--match_weight", "disagreement",
+             "--k_matchings", "1"],
+            ["--arm", "topology", "--graph", "ring"],
+            ["--arm", "matched", "--match_weight", "disagreement",
+             "--k_matchings", "2"],
+            ["--arm", "topology", "--graph", "prism"],
+            ["--arm", "topology", "--graph", "rregular:3"],
+            ["--arm", "topology", "--graph", "clusters:2"],
+            ["--arm", "topology", "--graph", "clusters:4"],
+            ["--arm", "dml"]]
+    return (["--cohort", "lenet:12", "--seed", str(i % 5 + 1)]
+            + arms[i // 5] + ["--run_tag", "d013"])
+
+
 # exp -> (index->argv, n_tasks, output_dir, sbatch script)
 GRIDS = {
     "r1": (_r1, 60, "results/suite/r1_pairs", "slurm/r1_pairs.sbatch"),
@@ -146,6 +162,7 @@ GRIDS = {
     "m6": (_m6, 30, "results/suite/m6_weight_signal", "slurm/m6_weight_signal.sbatch"),
     "m1b": (_m1b, 10, "results/suite/m1_headline", "slurm/m1b_perclass.sbatch"),
     "m7": (_m7, 80, "results/suite/m7_topology", "slurm/m7_topology.sbatch"),
+    "m7l": (_m7l, 45, "results/suite/m7l_lenet", "slurm/m7l_lenet.sbatch"),
 }
 
 
