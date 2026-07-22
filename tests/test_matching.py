@@ -309,6 +309,28 @@ class TestGraphs:
         assert sorted(nb[0]) == [1, 3]
         assert sorted(nb[1]) == [0, 2]
 
+    def test_clusters_disconnected_cliques(self):
+        # clusters:4 on K=12 -> three isolated 4-cliques, degree 3, gap 0.
+        m = mt.build_graph_mask("clusters:4", 12)
+        assert (m.sum(axis=0) == 3).all()
+        assert (m == m.T).all()
+        assert not m.diagonal().any()
+        # block structure: no edge crosses a clique boundary
+        for a in range(12):
+            for b in range(12):
+                if m[a, b]:
+                    assert a // 4 == b // 4
+        assert not mt._is_connected(m)
+        # spectral gap 0: a disconnected walk never mixes globally
+        assert mt.graph_spectral_gap(m) == pytest.approx(0.0, abs=1e-9)
+        # frozen pairs variant
+        p = mt.build_graph_mask("clusters:2", 12)
+        assert (p.sum(axis=0) == 1).all()
+        with pytest.raises(ValueError):
+            mt.build_graph_mask("clusters:5", 12)  # 5 does not divide 12
+        with pytest.raises(ValueError):
+            mt.build_graph_mask("clusters:1", 12)  # no self-teaching
+
     def test_spectral_gap_expander_beats_cycle(self):
         # An expander must have a strictly larger spectral gap than a cycle.
         gap_ring = mt.graph_spectral_gap(mt.build_graph_mask("ring", 12))

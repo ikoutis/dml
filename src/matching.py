@@ -190,6 +190,11 @@ def build_graph_mask(kind: str, K: int, seed: int = 0,
       'latticeK4'   degree-4 ring lattice (each node wired to its 2 nearest
                     neighbours on each side) — poor-mixing degree-4 control
                     for the random 4-regular expander.
+      'clusters:m'  K/m DISCONNECTED m-cliques (degree m-1, spectral gap 0).
+                    The one deliberately disconnected topology: the
+                    connectivity probe of [D-012] — if degree alone drives
+                    the benefit, isolated cliques should match a connected
+                    graph of equal degree. Requires m | K.
     """
     mask = np.zeros((K, K), dtype=bool)
     if kind == "complete":
@@ -214,6 +219,17 @@ def build_graph_mask(kind: str, K: int, seed: int = 0,
         for i in range(K):
             for off in (1, 2):
                 mask[i, (i + off) % K] = mask[(i + off) % K, i] = True
+        return mask
+    if kind.startswith("clusters:"):
+        m_size = int(kind.split(":", 1)[1])
+        if m_size < 2 or K % m_size != 0:
+            raise ValueError(f"clusters:{m_size} needs cluster size >= 2 "
+                             f"dividing K, got K={K}.")
+        for g in range(K // m_size):
+            lo = g * m_size
+            for a in range(lo, lo + m_size):
+                for b in range(a + 1, lo + m_size):
+                    mask[a, b] = mask[b, a] = True
         return mask
     if kind.startswith("rregular:"):
         d = int(kind.split(":", 1)[1])

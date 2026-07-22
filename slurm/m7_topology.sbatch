@@ -22,6 +22,13 @@
 #   idx = noise*35 + arm*5 + (seed-1)
 #   0-34  : clean         35-69 : +40% label noise
 #
+# [D-012] connectivity probe (clean only), appended as indices 70-79:
+#   70-74 clusters:2  six DISCONNECTED frozen pairs   (deg 1; vs matched-k1)
+#   75-79 clusters:4  three DISCONNECTED 4-cliques    (deg 3; vs prism/rreg3)
+# If degree alone drives the benefit, the isolated cliques match their
+# connected same-degree counterparts; a deficit = the connectivity premium.
+# Launch just these:  sbatch --array=70-79 slurm/m7_topology.sbatch
+#
 # Full A100 (not a MIG slice): at K=12 the trainer holds all 12 computation
 # graphs live simultaneously (~1.5x the K=8 activation memory the slices ran),
 # so a 10G slice risks OOM. Cost/task ~6-8 GPU-h.
@@ -42,7 +49,7 @@
 #SBATCH --signal=B:USR1@1800
 #SBATCH --requeue
 #SBATCH --open-mode=append
-#SBATCH --array=0-69
+#SBATCH --array=0-79
 
 set -euo pipefail
 module load Miniforge3
@@ -60,25 +67,36 @@ test -d data/cifar-100-python || {
 }
 
 i=$SLURM_ARRAY_TASK_ID
-NOISE_IDX=$((i / 35))
-J=$((i % 35))
-ARM_IDX=$((J / 5))
-SEED=$((J % 5 + 1))
+if [ "$i" -ge 70 ]; then
+    # [D-012] connectivity probe: clean, disconnected cliques
+    NOISE=0.0
+    SEED=$((i % 5 + 1))
+    if [ "$i" -lt 75 ]; then
+        ARMARGS="--arm topology --graph clusters:2"
+    else
+        ARMARGS="--arm topology --graph clusters:4"
+    fi
+else
+    NOISE_IDX=$((i / 35))
+    J=$((i % 35))
+    ARM_IDX=$((J / 5))
+    SEED=$((J % 5 + 1))
 
-case $NOISE_IDX in
-    0) NOISE=0.0 ;;
-    1) NOISE=0.4 ;;
-esac
+    case $NOISE_IDX in
+        0) NOISE=0.0 ;;
+        1) NOISE=0.4 ;;
+    esac
 
-case $ARM_IDX in
-    0) ARMARGS="--arm indep" ;;
-    1) ARMARGS="--arm matched --match_weight disagreement --k_matchings 1" ;;
-    2) ARMARGS="--arm topology --graph ring" ;;
-    3) ARMARGS="--arm matched --match_weight disagreement --k_matchings 2" ;;
-    4) ARMARGS="--arm topology --graph prism" ;;
-    5) ARMARGS="--arm topology --graph rregular:3 --graph_seed $SEED" ;;
-    6) ARMARGS="--arm dml" ;;
-esac
+    case $ARM_IDX in
+        0) ARMARGS="--arm indep" ;;
+        1) ARMARGS="--arm matched --match_weight disagreement --k_matchings 1" ;;
+        2) ARMARGS="--arm topology --graph ring" ;;
+        3) ARMARGS="--arm matched --match_weight disagreement --k_matchings 2" ;;
+        4) ARMARGS="--arm topology --graph prism" ;;
+        5) ARMARGS="--arm topology --graph rregular:3 --graph_seed $SEED" ;;
+        6) ARMARGS="--arm dml" ;;
+    esac
+fi
 
 OUT=results/suite/m7_topology
 mkdir -p results/logs "$OUT"

@@ -332,6 +332,16 @@ class TestTopology:
         with pytest.raises(ValueError):
             self.make(tmp_path, 6, "complete")   # topology needs a real graph
 
+    def test_disconnected_clusters(self, tmp_path):
+        # [D-012] connectivity probe: clusters:2 on K=6 -> three frozen
+        # pairs; each model's sole teacher is its pair-mate, alpha = 1.
+        t = self.make(tmp_path, 6, "clusters:2", epochs=1)
+        for i in range(6):
+            mate = i + 1 if i % 2 == 0 else i - 1
+            assert t.teachers[i] == [(mate, 1.0)]
+        assert t._degree() == 1
+        t.train()   # trains end-to-end despite gap 0 (that's the point)
+
 
 def test_parse_k_anneal():
     assert parse_k_anneal("") == []

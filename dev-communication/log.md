@@ -10,6 +10,44 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-22 — Task [D-012]: the connectivity probe — do DISCONNECTED cliques match connected graphs at equal degree?
+
+Raised in discussion: "degree is everything" has an uncomfortable corollary — a
+cohort split into small isolated cliques (no path between them, ever) should hit
+the same accuracy as a connected graph of equal degree. And the DML paper (§3.5,
+Fig. 2) reports gains that GROW with cohort size, which sounds like the opposite.
+
+**What we already know.** (a) The paper's size effect confounds size with degree —
+a bigger dense cohort is also a higher-degree one. Our dense curve reproduces it
+(71.20 K=2 → 71.72 K=4 → 72.04 K=8 → 72.15 K=12, diminishing), but at FIXED
+degree 1 the size effect nearly vanishes: 71.20 → 71.43 → 71.66 → 71.67, a
++0.47 pp trend that saturates by pool ≈ 7 and is only p ≈ 0.15 against K=2's
+noise. (b) M4's static arm is an accidental disconnection experiment: freezing
+the epoch-0 matching = four isolated 2-cliques for 200 epochs, K=8 hetero — and
+it exactly TIES rotating random rematching (75.60 ± 0.22 vs 75.60 ± 0.15). So
+the data mildly favors the radical reading; the probe below settles it cleanly.
+
+**The probe** (M7 indices 70–79, `sbatch --array=70-79 slurm/m7_topology.sbatch`,
+K=12 clean, 5 seeds, same pipeline/tag d011 so everything is iso-K and iso-batch):
+
+| cell | graph | degree | connected comparator (already run/running) |
+|---|---|---|---|
+| clusters:2 | six frozen pairs | 1 | matched-k1 rotating (71.67) |
+| clusters:4 | three isolated 4-cliques | 3 | prism 71.78 / rreg3 71.68 (fixed, connected) |
+
+New graph kind `clusters:m` (disconnected m-cliques, spectral gap exactly 0) in
+`build_graph_mask`; the topology arm takes it unchanged. 94 tests.
+
+**Readout.** Ties ⇒ the mutual-learning benefit is purely LOCAL: connectivity,
+pool size, and global consensus all irrelevant — and the cohort becomes
+embarrassingly parallel (shard it into pairs; zero global synchronization). The
+paper's size effect then reduces to a degree effect. Deficits ⇒ the connectivity
+premium, quantified at two degrees. Either way check the ENSEMBLE column:
+disconnection preserves cross-cluster diversity, so clusters ensembles may beat
+every connected arm's ([D-010] says coupling costs ensemble ceiling).
+
+---
+
 ## 2026-07-21 — Task [D-011]: M7 — fixed communication topologies (the expander campaign)
 
 New campaign, spec in experiments.md §3.M7. Everything up to M6 varied *who* you

@@ -358,6 +358,20 @@ Array: 7 arms × 2 noise × 5 seeds = **70 tasks**, `slurm/m7_topology.sbatch`. 
 A100 (not a slice): at K = 12 the trainer holds all 12 computation graphs live, ~1.5×
 the K = 8 activation memory the slices handled. ~6–8 GPU-h/task.
 
+**Connectivity probe ([D-012], indices 70–79).** The strongest objection to
+"degree is everything": then a cohort split into small DISCONNECTED cliques should
+hit the same accuracy — yet the DML paper reports gains growing with cohort size.
+Current evidence is split: at fixed degree 1 the rotating pool shows a weak size
+trend (K=2 71.20 → K=12 71.67, p≈0.15), but M4's static arm — frozen pairs, i.e.
+four disconnected 2-cliques, K=8 hetero — exactly ties rotating random rematching
+(75.60 vs 75.60). The probe settles it iso-K, iso-degree, same pipeline:
+`clusters:2` (six frozen pairs, deg 1, vs matched-k1) and `clusters:4` (three
+isolated 4-cliques, deg 3, vs prism/rreg3), K=12 clean, 5 seeds. Ties ⇒ the
+benefit is purely local (and the cohort is shardable: no global synchronization at
+all); deficits ⇒ the connectivity premium, quantified. Watch the ensemble too —
+disconnection preserves cross-cluster diversity, so the clusters ENSEMBLE may beat
+every connected arm's ([D-010]).
+
 **Tier 2 — does expansion matter? (N = 50, deferred to the end).** Same-degree
 contrast where the mixing gap is real. Cleanest pair is **degree-4: ring-lattice vs
 random-4-regular** (10× gap separation at N = 50). Lighter backbone (ResNet-20) to

@@ -186,7 +186,8 @@ class MutualTrainer:
         if cfg.arm == "topology":
             if self.graph_mask is None:
                 raise ValueError("topology arm needs --graph != complete "
-                                 "(use ring/prism/rregular:d/latticeK4)")
+                                 "(use ring/prism/rregular:d/latticeK4/"
+                                 "clusters:m)")
             neigh = mt.graph_neighbors(self.graph_mask)
             degs = {len(n) for n in neigh}
             self.teachers = [[(j, 1.0 / len(n)) for j in n] if n else []

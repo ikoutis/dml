@@ -114,6 +114,12 @@ def _m1b(i):  # [D-007] follow-up: per-class matched arm, clean + noise
 def _m7(i):  # [D-011] Tier 1: fixed communication topologies, K=12, clean+noise
     # Own run_tag d011: the dml/mwmd1 K=12 cells would otherwise collide with
     # M3's cohort-scaling cells (also resnet32:12 dml/mwmd1). Self-contained.
+    # Indices 70-79: [D-012] connectivity probe (disconnected cliques, clean).
+    if i >= 70:
+        graph = "clusters:2" if i < 75 else "clusters:4"
+        return (["--cohort", "resnet32:12", "--arm", "topology",
+                 "--graph", graph, "--seed", str(i % 5 + 1),
+                 "--run_tag", "d011"])
     noise = "0.0" if i < 35 else "0.4"
     j = i % 35
     arms = [["--arm", "indep"],
@@ -139,7 +145,7 @@ GRIDS = {
     "m5": (_m5, 5, "results/suite/m5_target_structure", "slurm/m5_target_structure.sbatch"),
     "m6": (_m6, 30, "results/suite/m6_weight_signal", "slurm/m6_weight_signal.sbatch"),
     "m1b": (_m1b, 10, "results/suite/m1_headline", "slurm/m1b_perclass.sbatch"),
-    "m7": (_m7, 70, "results/suite/m7_topology", "slurm/m7_topology.sbatch"),
+    "m7": (_m7, 80, "results/suite/m7_topology", "slurm/m7_topology.sbatch"),
 }
 
 

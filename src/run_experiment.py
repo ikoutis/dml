@@ -75,7 +75,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--peel_weighting", default="weight",
                    choices=["weight", "uniform"])
     p.add_argument("--graph", default="complete",
-                   help="'complete', 'ring', or 'rregular:d'")
+                   help="'complete', 'ring', 'prism', 'latticeK4', "
+                        "'rregular:d', or 'clusters:m' (disconnected "
+                        "m-cliques)")
     p.add_argument("--graph_seed", type=int, default=0)
     # optimization (DML-paper defaults)
     p.add_argument("--epochs", type=int, default=200)
