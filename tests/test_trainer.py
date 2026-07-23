@@ -343,6 +343,114 @@ class TestTopology:
         t.train()   # trains end-to-end despite gap 0 (that's the point)
 
 
+class TestZombie:
+    """[D-015] controlled epidemiology: one implanted dead model that emits
+    exactly-uniform logits and never trains."""
+
+    def make(self, tmp_path, K=6, **kw):
+        slots = make_slots(K, seed=3)
+        tl = make_loader(32, seed=10)
+        vl = make_loader(16, seed=11)
+        cfg = base_cfg(tmp_path, zombie_slot=0, **kw)
+        return MutualTrainer(cfg, slots, tl, vl, vl, num_classes=N_CLS,
+                             n_valid=16)
+
+    def test_zombie_emits_uniform_and_never_trains(self, tmp_path):
+        t = self.make(tmp_path, arm="topology", graph="ring")
+        x = torch.randn(5, IN_DIM)
+        out = t.models[0](x)
+        assert out.shape == (5, N_CLS)
+        assert torch.all(out == 0)                      # exact uniform logits
+        before = [p.clone() for p in t.models[0].parameters()]
+        final = t.train()
+        after = list(t.models[0].parameters())
+        assert all(torch.equal(a, b) for a, b in zip(before, after))
+        assert final["model_00_train_loss"] == 0.0      # never stepped
+        assert t.slots[0].arch == "zombie"
+
+    def test_healthy_slots_keep_anchor_inits(self, tmp_path):
+        # Replacing slot 0 must not perturb the other slots' inits — the
+        # per-model pairing with no-zombie anchor runs depends on it.
+        ref = make_slots(6, seed=3)
+        t = self.make(tmp_path, arm="topology", graph="ring")
+        for i in range(1, 6):
+            for p_ref, p_z in zip(ref[i].model.parameters(),
+                                  t.models[i].parameters()):
+                assert torch.equal(p_ref, p_z)
+
+    def test_neighbours_receive_uniform_teacher(self, tmp_path):
+        # Ring 0-1-2-3-4-5-0: models 1 and 5 each have the zombie as one of
+        # two teachers; their kd_loss must include a KL-to-uniform term.
+        t = self.make(tmp_path, arm="topology", graph="ring")
+        assert (0, 0.5) in [tuple(p) for p in t.teachers[1]]
+        assert (0, 0.5) in [tuple(p) for p in t.teachers[5]]
+        final = t.train()
+        assert final["model_01_kd_loss"] > 0
+        assert "avg_test_acc_healthy" in final
+        healthy = [final[f"model_{i:02d}_test_acc"] for i in range(1, 6)]
+        assert final["avg_test_acc_healthy"] == pytest.approx(
+            float(np.mean(healthy)))
+
+    def test_ensemble_argmax_invariant_to_zombie(self, tmp_path):
+        # A uniform member shifts every class's mean probability equally, so
+        # the ensemble prediction with the zombie must equal the healthy-only
+        # ensemble prediction.
+        from src.metrics import evaluate_cohort
+        t = self.make(tmp_path, arm="topology", graph="ring")
+        ev_all = evaluate_cohort(t.models, t.valid_loader, t.device)
+        ev_healthy = evaluate_cohort(t.models[1:], t.valid_loader, t.device)
+        assert ev_all["ensemble_acc"] == pytest.approx(
+            ev_healthy["ensemble_acc"])
+
+    def test_matched_arm_with_zombie(self, tmp_path):
+        # The zombie participates in random matching like anyone else; the
+        # run completes and someone is paired with it each refresh.
+        t = self.make(tmp_path, arm="matched", match_weight="random")
+        t.train()
+        partners = {j for M in t.current_matchings for (a, j) in M
+                    if a == 0} | {a for M in t.current_matchings
+                                  for (a, j) in M if j == 0}
+        assert len(partners) >= 1
+
+    def test_indep_zombie_rejected(self, tmp_path):
+        with pytest.raises(ValueError):
+            self.make(tmp_path, arm="indep")
+
+    def test_zombie_resume_roundtrip(self, tmp_path):
+        # Mid-run interrupt: 1 of 2 epochs, then resume and finish. The
+        # resumed cohort's healthy params must match an uninterrupted
+        # 2-epoch run bit-for-bit (same criterion as the healthy-arm
+        # resume test), with the zombie present throughout.
+        t_full = self.make(tmp_path, arm="topology", graph="ring", epochs=2,
+                           checkpoint_every=100, run_id="zfull")
+        t_full.train()
+        t1 = self.make(tmp_path, arm="topology", graph="ring", epochs=1,
+                       checkpoint_every=1, run_id="zpart")
+        t1.train()
+        t2 = self.make(tmp_path, arm="topology", graph="ring", epochs=2,
+                       checkpoint_every=1, resume=True, run_id="zpart")
+        t2.train()
+        assert t2.start_epoch == 1
+        for i in range(1, 6):
+            for pf, pr in zip(t_full.models[i].parameters(),
+                              t2.models[i].parameters()):
+                assert torch.allclose(pf, pr, atol=1e-6)
+
+    def test_zombie_measured_matching_rejected(self, tmp_path):
+        with pytest.raises(ValueError):
+            self.make(tmp_path, arm="matched", match_weight="disagreement")
+
+    def test_healthy_pairwise_columns(self, tmp_path):
+        t = self.make(tmp_path, arm="topology", graph="ring")
+        final = t.train()
+        for col in ("disagreement_test_healthy", "rho_test_healthy",
+                    "disagreement_val_healthy", "rho_val_healthy"):
+            assert col in final
+        # the healthy disagreement excludes the constant zombie predictor,
+        # so it must differ from (be below) the all-pairs column
+        assert final["disagreement_test_healthy"] <= final["disagreement_test"]
+
+
 def test_parse_k_anneal():
     assert parse_k_anneal("") == []
     assert parse_k_anneal("120:1,0:3,60:2") == [(0, 3), (60, 2), (120, 1)]

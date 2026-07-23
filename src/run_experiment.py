@@ -79,6 +79,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "'rregular:d', or 'clusters:m' (disconnected "
                         "m-cliques)")
     p.add_argument("--graph_seed", type=int, default=0)
+    p.add_argument("--zombie_slot", type=int, default=-1,
+                   help="[D-015] index of an implanted dead (uniform-logit, "
+                        "never-training) cohort member; -1 = none")
     # optimization (DML-paper defaults)
     p.add_argument("--epochs", type=int, default=200)
     p.add_argument("--lr", type=float, default=0.1)
@@ -107,13 +110,14 @@ _WEIGHT_CODE = {"disagreement": "mwmd", "teachable": "mwmt",
 
 
 def auto_arm_label(args) -> str:
+    zomb = f"-zomb{args.zombie_slot}" if args.zombie_slot >= 0 else ""
     if args.arm == "indep":
         return "indep"
     if args.arm == "dml":
-        return "dmle" if args.target == "ensemble" else "dml"
+        return ("dmle" if args.target == "ensemble" else "dml") + zomb
     if args.arm == "topology":
         # e.g. topo-ring, topo-prism, topo-rregular3 (':' stripped)
-        return "topo-" + args.graph.replace(":", "")
+        return "topo-" + args.graph.replace(":", "") + zomb
     label = f"{_WEIGHT_CODE[args.match_weight]}{args.k_matchings}"
     if args.match_weight == "teachable" and args.kappa != 1.0:
         label += f"-k{args.kappa:g}"
@@ -134,7 +138,7 @@ def auto_arm_label(args) -> str:
         label += f"-{args.graph.replace(':', '')}"
     if args.kd_T != 1.0:
         label += f"-T{args.kd_T:g}"
-    return label
+    return label + zomb
 
 
 def compose_run_id(args, arm_label: str) -> str:
@@ -219,8 +223,15 @@ def main() -> None:
         "noise_seed": args.noise_seed, "split_seed": args.split_seed,
         "n_train": info["n_train"], "n_valid": info["n_valid"],
         "n_test": info["n_test"],
-        "cohort_params": sum(s.n_params for s in slots),
+        # Trainable params only: the zombie slot ([D-015]) contributes none.
+        "cohort_params": sum(s.n_params for s in slots
+                             if s.index != args.zombie_slot),
     }
+    if args.zombie_slot >= 0:
+        # Only zombie runs carry this column: emitting it unconditionally
+        # would crash --resume of pre-change runs whose CSV headers (pinned
+        # by CsvWriter) lack it — [D-015] review finding.
+        static_row["zombie_slot"] = args.zombie_slot
 
     cfg = TrainerConfig(
         run_id=run_id, arm=args.arm, arm_label=arm_label, target=args.target,
@@ -233,7 +244,8 @@ def main() -> None:
         recency_lambda=args.recency_lambda,
         recency_gamma=args.recency_gamma,
         peel_weighting=args.peel_weighting, graph=args.graph,
-        graph_seed=args.graph_seed, seed=args.seed, device=device,
+        graph_seed=args.graph_seed, zombie_slot=args.zombie_slot,
+        seed=args.seed, device=device,
         output_dir=args.output_dir, checkpoint_every=args.checkpoint_every,
         resume=args.resume, verbose=args.verbose, trap_usr1=True,
         static_row=static_row)

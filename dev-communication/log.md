@@ -10,6 +10,168 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-22 — Reply to [D-015]: pre-launch adversarial review — findings and fixes
+
+A 20-agent adversarial review (5 lenses × independent verification of every
+claim) ran over the zombie change before launch. 15 raw findings, 11 confirmed
+after verification, deduplicating to 6 real issues — all fixed in this commit:
+
+1. **(major) The [D-012] clusters probe never ran.** `m7_topology.sbatch`
+   indices 70–79 left `ARM_IDX` unset in their branch; under `set -u` the echo
+   line kills the task at startup. This explains the absence of clusters
+   anchor results. Fixed (ARM_IDX set); **indices 70–79 must be (re)launched**
+   — M9's clusters:4 arm needs those anchors.
+2. **(live) Resume crash for pre-change runs.** `static_row` carried the new
+   `zombie_slot` key unconditionally; CsvWriter pins fieldnames from an
+   existing CSV's header, so `--resume` of any run whose CSV predates the
+   change (12/80 m7 anchors were incomplete at review time) would train one
+   epoch, then crash at the metrics write — on every requeue. Fixed: the key
+   is emitted only for zombie runs.
+3. `cohort_params` overstated zombie cohorts by one full ResNet-32 (computed
+   before implantation). Fixed: trainable params only.
+4. `disagreement_*`/`rho_*` include the zombie's constant predictions and are
+   not reconstructible post-hoc. Fixed: `*_healthy` counterparts logged.
+5. No guard against `--match_weight disagreement` + zombie (the matcher would
+   deterministically glue to the maximally-disagreeing zombie). Fixed:
+   rejected with an explanatory error; random weights only.
+6. `_m9`/`_m7` recovery grids omitted `--graph_seed` for the rregular:3 arms
+   (harmless for completeness-checking — run_ids don't encode it — but it
+   violates the grids-mirror-the-sbatch contract and would silently rebuild a
+   different graph if the argv were ever used to reproduce a run). Fixed.
+   Plus: zombie's scheduler no longer steps (kills a warning; lr column now
+   reads from the first healthy slot), and the zombie resume test now
+   exercises a mid-run interrupt with bit-level parameter comparison.
+
+Verified clean by the review: RNG/init parity with anchors (bit-identical,
+empirically), training-step math for all arms, ensemble argmax-invariance,
+matched-random uniformity, rho NaN-safety with a constant predictor, comm
+ledger, and the 35-task sbatch↔grid↔run_id mapping. 105 tests pass.
+
+---
+
+## 2026-07-22 — Task [D-015]: M9 — controlled epidemiology (the zombie implant)
+
+Turning [D-014]'s accident into a measured dose-response law. One cohort slot is
+replaced by a **dead model**: frozen, emitting exactly-uniform logits (zero
+logits — the fixed point an actually-collapsed model converges to), never
+training, participating fully in whatever communication protocol the arm runs.
+Host cohort: ResNet-32 × 12 (11 healthy + zombie at slot 0), CIFAR-100 clean,
+5 seeds — hosts that have never died spontaneously anywhere in the suite, so any
+damage is CAUSED by the implant.
+
+**Design points.**
+- The zombie is implanted AFTER the cohort is built and consumes no RNG, so
+  healthy slots 1–11 keep bit-identical inits and batch order with the M7 d011
+  no-zombie anchors at equal seed: every readout is a per-model PAIRED
+  comparison (model i with zombie vs the same model i without).
+- arch='zombie' keeps it out of per-arch mean columns; new
+  `avg_test_acc_healthy` / `avg_val_acc_healthy` columns; the ensemble needs no
+  healthy variant (a uniform member shifts all classes equally — argmax-
+  invariant, verified by test).
+- Matched arms use RANDOM weights: disagreement-MWM would deterministically glue
+  itself to the zombie (it maximally disagrees with everyone) and confound the
+  exposure schedule.
+- Arms (7 × 5 seeds = 35 tasks, `sbatch slurm/m9_zombie.sbatch`, slices):
+  ring (zombie α=½ on 2 fixed victims) · prism (α=⅓ on 3) · rregular:3 (α=⅓,
+  short paths, graph_seed=seed) · clusters:4 (zombie sealed in clique 0;
+  cliques 1–2 = same-run no-exposure control) · matched-random k=1 (full-dose
+  α=1 victim, rotating ~1/11 of rounds) · k=2 · dense (α=1/11, everyone, every
+  round).
+
+**Registered predictions.**
+1. No healthy-host deaths (R0 < 1): ResNet+BN hosts degrade at most, and do NOT
+   become noise emitters — damage without transmission. ([D-014]'s LeNet had
+   R0 > 1; the difference is host robustness — the susceptibility axis.)
+2. Per-victim damage ordered by the zombie's weight in the victim's KD mix:
+   ring (½) > prism/rreg3 (⅓) ≫ dense (1/11) ≈ matched-k1 time-average (1/11).
+3. Damage decays with graph distance (distance-2 ≈ 0 if R0 ≈ 0) — the ring's
+   spatial damage profile is the cleanest readout, and it needs no cross-run
+   baseline at all.
+4. clusters:4: cliques 1–2 statistically indistinguishable from anchors.
+**Counter-hypothesis, equal standing:** KL(student ‖ uniform) is exactly a
+confidence penalty (entropy regularization, à la label smoothing) — on clean
+data with strong hosts the "poison" may be neutral or mildly HELPFUL. Then
+[D-014]'s contagion required fragile hosts, i.e. the epidemic has a
+susceptibility threshold — also a publishable shape for the failure-propagation
+story (poison for the weak, medicine for the strong).
+
+Implementation: `_ZombieModel` + `--zombie_slot` (mutual_trainer/run_experiment),
+TestZombie ×7 (uniform emission, never-trains, anchor-init parity, teacher
+wiring, ensemble invariance, matched participation, resume roundtrip), grid
+`m9` (35), suite-grids pinned. An adversarial multi-agent review of the change
+ran before launch; findings and fixes recorded in the reply below this entry.
+
+---
+
+## 2026-07-22 — Reply [D-014]: M7-L readout — the probe found the DESTRUCTIVE regime: collapse is contagious through the communication graph
+
+M7-L ([D-013], 45/45 complete) did not produce a compressed ladder or an
+amplified one. It produced a phenomenon: **training collapse spreads through
+the communication graph like an epidemic, and the graph's structure — inert
+for 3 weeks of constructive measurements — controls the spread.**
+
+**The raw picture.** Final cohort accuracy is bimodal: ~34–41% (normal for
+LeNet on CIFAR-100) or exactly 1.0% (= 1/100, total collapse). Per-model
+forensics: individual LeNets die spontaneously at a ~7% base rate even in the
+INDEPENDENT arm (BN-less LeNet at lr 0.1; every death in the first LR phase,
+ep 13–49, none after the ep-60 drop). The finding is what coupling does with
+a death: a dead model emits near-uniform logits; its KL pull degrades
+neighbours; if the pull beats the data signal, neighbours die; cascade.
+
+**Full-cohort collapse rates (5 runs/arm):** indep 0/5 · matched-1 1/5 ·
+ring 1/5 · matched-2 3/5 · prism 1/5 · rregular:3 3/5 · dense 3/5 ·
+clusters:2 0/5 · clusters:4 0/5. Three structure contrasts, all in the
+epidemic direction: iso-degree-2 ring 1/5 vs rotating 3/5 (rotation exposes
+everyone to the zombie); iso-degree-3 prism 1/5 vs expander 3/5 (the
+expander's short paths spread it); connected 12/30 vs disconnected 0/10.
+
+**Containment and wave speed.** In clusters runs, deaths NEVER cross clique
+boundaries (e.g. clusters:4 s5: clique1 died 4/4 while cliques 0/2 finished
+at full accuracy — quarantine, literally). Death-wave timing in collapsed
+runs: ring — patient zero ep35, full cohort dead ep45 (10-epoch traversal);
+expander — patient zero ep13, all dead by ep16; rotating matched — 2 epochs.
+Spread time tracks mixing time.
+
+**Survivor-conditional ladder (dead models and collapsed runs excluded):**
+indep 41.03 ± 0.63; every coupled arm at or below it (matched-1 −3.0,
+clusters:2 −3.0, prism −1.6, ring −1.0, dense −0.3, clusters:4 −0.2).
+**The conversion prediction of [D-013] is FALSIFIED at LeNet capacity** —
+coupling buys nothing even conditional on survival; the capacity-cap story
+wins the constructive channel. (Degree-1 arms are worst — a single teacher
+is the noisiest target; averaged multi-teacher targets dilute a bad signal.)
+
+**Verdict vs the registered predictions.** Neither registered story
+anticipated the actual outcome. The structure-program gate asked whether
+same-degree spreads exceed 0.5 pp anywhere; the LeNet leg answered with a
+40-percentage-POINT structure effect — in the destructive channel. This is
+the KD theory's Stage-II "destructive regime," observed in the DML harness:
+a dead model is the steepest competence gradient possible, flow runs down
+it, and structure controls whether the cascade percolates — exactly the
+"structure couples to gradients / controls phase boundaries" picture, in
+inverted sign.
+
+**Honest scope caveat.** The spontaneous deaths are a recipe artifact
+(BN-less LeNet at lr 0.1; a warmup or BN would likely eliminate them). The
+claim is NOT "mutual learning fails for weak learners"; it is "coupling
+turns individual fragility into cohort-level systemic risk, at a rate set
+by the communication structure." Fragility supplies patient zero; the graph
+physics of the spread is the finding — and it needed no artificial
+intervention to appear.
+
+**Follow-ups this opens (not yet scheduled):**
+1. *Controlled epidemiology* — implant one frozen uniform-output model in an
+   otherwise-healthy ResNet cohort and measure spread vs topology/degree/α.
+   Turns the accident into a dose-response curve; connects to the KD repo's
+   anti-Oracle/adversary plans. Cheap (K=12 slices).
+2. *Stabilized rerun* (LeNet + 5-epoch LR warmup) to answer the original
+   [D-013] constructive question cleanly, with deaths removed.
+3. A robustness paragraph for paper 1: dense coupling maximizes systemic
+   risk; sparse/disconnected schemes are the fault-tolerant ones — one more
+   argument for reduced communication, and this one is about failure, not
+   efficiency.
+
+---
+
 ## 2026-07-22 — Task [D-013]: M7-L — the weak-learner probe (LeNet ladder)
 
 Motivation (discussion, same day as [D-012]): ResNets may be strong enough that
