@@ -10,6 +10,42 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-22 — Reply to [D-011]: M7 noise tier complete (70/70) — conversion replicates at K=12; structure stays flat under noise; and a NATURAL zombie appeared
+
+**Ladder (40% label noise, K=12, 5 seeds, final epoch):** indep 50.63 ± 0.18 ·
+matched-1 58.34 (90% of dense benefit) · ring 58.49 (92%) · matched-2 58.61
+(93%) · prism 57.64 ± 2.07 → **58.59 healthy-model mean** (see below) ·
+rregular:3 58.67 (94%) · dense 59.22 (100%). Three verdicts:
+
+1. **The conversion result replicates at K=12 and strengthens the degree
+   story:** coupling recovers +7.7 to +8.6 pp of the noise collapse, and
+   degree 1 already captures 90% of it (vs 84% clean) at 1/11 the traffic.
+2. **The structure gate leg reads NULL: same-degree spreads do not widen
+   under noise.** Clean's marginal ring dent (−0.22 vs matched-2, p≈0.13)
+   shrinks to −0.12 here; prism ≈ rregular:3 (58.59 vs 58.67). The
+   "structure effects scale with competence dispersion" prediction is NOT
+   supported in the constructive channel — under the largest gradients we
+   have, degree is still everything. Two of the three gate legs are now in
+   (noise: null; LeNet: capacity-cap + destructive-channel effect); the
+   clusters probe (relaunch pending) completes the gate.
+3. **A natural zombie ([D-015]'s experiment, run by accident):** in prism
+   noise seed 2, model 4 was BORN dead — never above 10% at any epoch, the
+   first spontaneous ResNet death in ~1,000 ResNet model-trainings in this
+   suite (noise regime, birth instability). Its three prism neighbours then
+   carried a uniform-logit teacher at α = 1/3 for 200 full epochs. Result:
+   **no contagion** (all three finished healthy — R0 < 1 for ResNet hosts,
+   registered prediction 1 of [D-015], confirmed before M9 even launched)
+   and **graded damage −0.84 pp** vs the eight non-neighbours (57.66 vs
+   58.50, n = 3, one run — suggestive only). Both registered M9 predictions
+   (damage without transmission; dose ∝ α) get a free preliminary
+   confirmation; M9 turns this n=3 accident into a 35-run measurement.
+
+Housekeeping: with this, M7 Tier 1 is 70/70 complete. Outstanding on the
+cluster: `sbatch slurm/m9_zombie.sbatch` (35) and the repaired clusters
+anchors `sbatch --array=70-79 slurm/m7_topology.sbatch` (10).
+
+---
+
 ## 2026-07-22 — Reply to [D-015]: pre-launch adversarial review — findings and fixes
 
 A 20-agent adversarial review (5 lenses × independent verification of every
