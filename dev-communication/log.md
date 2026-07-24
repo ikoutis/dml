@@ -10,6 +10,55 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-23 — Reply to [D-012]+[D-015]: the connectivity gate and the first zombie damage field — both read out, both clean
+
+**Connectivity gate ([D-012], all 10 anchor runs complete).** The isolated-clique
+point-predictions ("a cohort of disconnected m-cliques behaves exactly like
+independent K=m dense cohorts") hit within 0.06 pp:
+
+| cell | measured | predicted (from M3) | vs connected comparator |
+|---|---|---|---|
+| clusters:2 (frozen pairs, deg 1) | 71.26 | 71.20 (K=2 dense) | −0.46 ± 0.19 vs rotating matched-1, **p = 0.008** |
+| clusters:4 (4-cliques, deg 3) | 71.76 | 71.72 (K=4 dense) | −0.12 (prism) / −0.07 (rreg3), both ns |
+
+Verdict: **connectivity's entire value is local pool access, and it saturates
+fast.** At degree 1 the pool premium is real (−0.46 pp, the same quantity M3
+measured as its fixed-degree K-trend); by degree 3 (pool 3) it is already
+within noise of the pool-11 graphs. No transport component is detectable —
+which **closes Tier 2 by implication** (the expander-vs-lattice contrast at
+N=50 only modulates transport speed, bounded between endpoints we have now
+both measured: gap-0 isolated cliques vs well-mixed, difference ≤ 0.1 pp at
+degree 3). Gate leg 3 of 3: the constructive-structure program is closed.
+Degree + local pool size predict everything; global structure is inert in the
+constructive channel at every capacity, noise level, and connectivity we
+tested.
+
+**M9 zombie damage field ([D-015]; ring arm 5/5 complete, rreg3 4/5, prism
+2/5, per-model PAIRED deltas vs the d011 anchors).** The registered
+predictions hold, with textbook sharpness:
+
+- **Ring spatial profile:** distance 1 (α=1/2 victims) **−0.96 ± 0.54 pp
+  (p < 0.001)**; distance 2 −0.22 (ns); distance ≥ 3 ≈ 0 (+0.03/+0.32/
+  +0.02/−0.01). Damage is graded, local, and stops at one hop.
+- **rreg3 victims (α=1/3): −0.88 (p = 0.002); non-neighbours +0.07 (exact
+  null).** Prism victims (2 seeds so far): −0.90; and the [D-011] natural
+  zombie's −0.84 (noise regime) sits right in the same band.
+- **Zero deaths among healthy hosts in all 35 runs so far** — R0 = 0
+  transmission for ResNet hosts, as registered. The [D-014] LeNet contagion
+  therefore required fragile hosts: the epidemic has a susceptibility
+  threshold, and capacity/stability is its control parameter.
+
+Note the α=1/2 vs α=1/3 doses produce similar damage (−0.96 vs −0.88/−0.90) —
+the dose-response may saturate above α ≈ 1/3 rather than staying linear;
+the pending arms bracket the low end (dense α=1/11 constant; matched-random
+α=1 pulsed at ~1/11 duty cycle) and will decide dilution-vs-pulse.
+
+Still running: dense (slowest, ~ep 70), rand1 (~ep 160), rand2 (~ep 85),
+clusters4-zomb (quarantine + internal control; s1 requeued early). Final M9
+verdict when those land.
+
+---
+
 ## 2026-07-22 — Reply to [D-011]: M7 noise tier complete (70/70) — conversion replicates at K=12; structure stays flat under noise; and a NATURAL zombie appeared
 
 **Ladder (40% label noise, K=12, 5 seeds, final epoch):** indep 50.63 ± 0.18 ·
