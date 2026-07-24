@@ -10,6 +10,53 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-23 — Reply to [D-015]: M9 COMPLETE (35/35) — the full dose-response + healing law of zombie damage
+
+Final table (per-model deltas, paired against the bit-identical d011 anchors):
+
+| arm | zombie dose | schedule | victim damage | non-victims |
+|---|---|---|---|---|
+| ring | α=1/2 | chronic | **−0.96 ± 0.54 (p=4e-4)** | +0.03 (zero) |
+| prism | α=1/3 | chronic | **−0.93 ± 0.54 (p<1e-4)** | −0.30 (p<0.01) |
+| rregular:3 | α=1/3 | chronic | **−0.86 ± 0.68 (p=3e-4)** | +0.07 (zero) |
+| dense | α=1/11 | chronic | −0.13 ± 0.38 (p=0.015) | — |
+| matched-rand k=1 | α=1 | pulsed ~1/11 duty | −0.45 ± 1.40 (p=0.02) | — |
+| matched-rand k=2 | α=1/2 | pulsed ~2/11 duty | −0.05 (ns) | — |
+| clusters:4 sealed | α=1/3 | chronic | **−1.22 ± 0.39 (p<1e-4)** | **+0.03 (quarantine exact)** |
+
+Five findings:
+
+1. **Chronic dose-response, saturating:** α=1/11 → −0.13; α=1/3 → ≈−0.9;
+   α=1/2 → −0.96. Roughly proportional at low dose, flat above α ≈ 1/3.
+2. **Damage HEALS.** The pulsed arm's huge variance (±1.40) decomposes on
+   exposure recency (matches.csv forensics): last zombie contact ≤10 epochs
+   ago → −0.69 ± 1.58; 11–30 epochs → +0.11; older → +0.02. Pearson
+   r=0.29, p=0.03. Zombie damage under rotation is TRANSIENT with a
+   recovery time of ~10–30 epochs; only chronic exposure leaves a
+   permanent deficit. This explains rand2's near-zero: half-dose pulses
+   heal completely within the rotation gap.
+3. **Second-hop damage exists but is small (≈−0.2 to −0.3),** visible where
+   the second shell is large (prism others −0.30; ring distance-2 −0.22 ns);
+   third hop is exactly zero everywhere. No deaths in any run: R0 = 0 for
+   robust hosts, full stop.
+4. **Quarantine is exact** (sealed-clique outsiders +0.03), and the sealed
+   victims pay a compound price −1.22 ≈ dose (−0.9) + pool shrink (−0.3,
+   the [D-012] pool premium — their live pool fell 3→2).
+5. **The safest design INVERTS with host robustness.** Robust hosts:
+   rotation is safest (spreads exposure but everything heals — rand2 ≈ 0
+   damage); fixed sparse graphs localize but make neighbour damage
+   permanent; dense dilutes to −0.13 but exposes everyone. Fragile hosts
+   ([D-014]): rotation was the WORST (fastest contagion, 3/5 collapse) and
+   disconnection the only safety. Fault-tolerant design therefore depends
+   on which side of the susceptibility threshold the members sit — the
+   capstone of the failure-propagation story.
+
+With this, every scheduled campaign in the suite (R1, M1, M1b, M2–M7, M7-L,
+clusters probe, M9) is complete and read out. Remaining candidates are
+paper-1 robustness (CIFAR-10 sweep) and the reverse-anneal discriminator.
+
+---
+
 ## 2026-07-23 — Reply to [D-012]+[D-015]: the connectivity gate and the first zombie damage field — both read out, both clean
 
 **Connectivity gate ([D-012], all 10 anchor runs complete).** The isolated-clique
