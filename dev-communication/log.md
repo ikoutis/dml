@@ -114,6 +114,11 @@ a seed-level paired difference, where it is +0.27 [+0.16, +0.38]. Bump
     IDS=$(python tools/incomplete.py r3)
     [ -n "$IDS" ] && sbatch --array=$IDS slurm/r3_temporal_dense.sbatch
 
+Readout: `python analysis/r3_readout.py` — seed-level PAIRED differences with
+95% CIs. Use it rather than `analysis/aggregate.py` for the R3 verdict:
+aggregate runs unpaired Welch tests, which is the failure mode that made the
+frozen-vs-rotating row look like an exact tie.
+
 Implementation: `--comm_on/--comm_block` (schedule), `--kd_scale` (dose),
 `--comm_accounting {p2p,allreduce}` (ledger), new `comm_duty` column, grid `r3`
 in `tools/incomplete.py`, 10 tests in `tests/test_comm_schedule.py`. 116 tests
