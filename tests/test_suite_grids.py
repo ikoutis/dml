@@ -10,7 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from incomplete import GRIDS, compress, run_id_for  # noqa: E402
 
 EXPECTED_SIZES = {"r1": 60, "m1": 60, "m2": 20, "m3": 25, "m4": 15,
-                  "m5": 5, "m6": 30, "m1b": 10, "m7": 80, "m7l": 45, "m9": 35, "r2": 40}
+                  "m5": 5, "m6": 30, "m1b": 10, "m7": 80, "m7l": 45, "m9": 35,
+                  "r2": 40, "r3": 10}
 # base suite (experiments.md §6); m1b [D-007] and m7 [D-011] are follow-ups.
 _BASE_SUITE = ("r1", "m1", "m2", "m3", "m4", "m5", "m6")
 
@@ -19,6 +20,16 @@ def test_grid_sizes_match_sbatch_arrays():
     assert {e: n for e, (_, n, _, _) in GRIDS.items()} == EXPECTED_SIZES
     # base suite (experiments.md §6); m1b is a [D-007] follow-up on top.
     assert sum(EXPECTED_SIZES[e] for e in _BASE_SUITE) == 215
+
+
+def test_r3_run_ids():
+    """[D-018]: the two byte-matched arms must stay distinguishable, since
+    they differ only in the KD dose applied on distilling updates."""
+    r3 = GRIDS["r3"][0]
+    assert run_id_for(r3(0)) == \
+        "resnet32x12_cifar100_K12_dmle-t6of11_seed0001_d018"
+    assert run_id_for(r3(5)) == \
+        "resnet32x12_cifar100_K12_dmle-t6of11-dose_seed0001_d018"
 
 
 def test_run_ids_unique_across_suite():

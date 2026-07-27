@@ -106,6 +106,18 @@ class TrainerConfig:
     graph_seed: int = 0
     zombie_slot: int = -1           # [D-015]: index of the implanted dead
                                     # model (-1 = none). See _ZombieModel.
+    # [D-018] temporally sparse communication. Distil on `comm_on` of every
+    # `comm_block` updates (0/0 = every update, the historical behaviour);
+    # `kd_scale` multiplies the KD term on active updates, so a schedule can
+    # be run at matched time-integrated distillation dose.
+    comm_on: int = 0
+    comm_block: int = 0
+    kd_scale: float = 1.0
+    # How to charge the communication ledger. 'p2p' bills `degree` posterior
+    # streams per update (point-to-point exchange, the historical behaviour);
+    # 'allreduce' bills 2(K-1)/K streams, the ring-all-reduce cost of the
+    # aggregate form, which is what exact dense DML actually needs.
+    comm_accounting: str = "p2p"
     # bookkeeping
     seed: int = 1
     device: str = "cuda"
@@ -325,6 +337,29 @@ class MutualTrainer:
                 })
 
     # ------------------------------------------------------------------
+    # Communication schedule ([D-018])
+    # ------------------------------------------------------------------
+    def _comm_active(self, batch_idx: int) -> bool:
+        """Is this update one of the `comm_on`-in-`comm_block` distilling ones?
+
+        Uses the standard even-spacing rule ``(t * on) % block < on``, which
+        for on=6, block=11 selects updates 1, 3, 5, 7, 9, 11 of each block and
+        yields exactly `on` active updates per block whenever gcd(on, block)=1.
+        The index is the batch position within the epoch, so the schedule is
+        deterministic and unaffected by resume.
+        """
+        on, block = self.cfg.comm_on, self.cfg.comm_block
+        if not block or on >= block:
+            return True
+        return (batch_idx * on) % block < on
+
+    def _stream_multiplier(self) -> float:
+        """Posterior streams billed per communicating update, per model."""
+        if self.cfg.comm_accounting == "allreduce":
+            return 0.0 if self.K < 2 else 2.0 * (self.K - 1) / self.K
+        return float(self._degree())
+
+    # ------------------------------------------------------------------
     # One epoch of simultaneous mutual training
     # ------------------------------------------------------------------
     def _train_one_epoch(self, epoch: int) -> Dict:
@@ -336,6 +371,8 @@ class MutualTrainer:
                 "kd": np.zeros(self.K)}
         n_batches = 0
         n_seen = 0
+        n_seen_comm = 0
+        n_batches_comm = 0
         for x, y in self.train_loader:
             x = x.to(self.device, non_blocking=True)
             y = y.to(self.device, non_blocking=True)
@@ -344,7 +381,12 @@ class MutualTrainer:
             outputs = [m(x) for m in self.models]
             detached = [o.detach() for o in outputs]
 
-            if cfg.arm == "dml" and cfg.target == "ensemble" and self.K > 2:
+            # [D-018]: on non-distilling updates every model trains on CE
+            # alone and nothing is exchanged.
+            comm_active = self._comm_active(n_batches)
+
+            if (comm_active and cfg.arm == "dml"
+                    and cfg.target == "ensemble" and self.K > 2):
                 probs = torch.stack([F.softmax(d / T, dim=1)
                                      for d in detached])
                 probs_sum = probs.sum(dim=0)
@@ -354,7 +396,9 @@ class MutualTrainer:
                     continue    # the dead model never trains
                 ce = self.loss_ce(outputs[i], y)
                 kd = outputs[i].new_zeros(())
-                if cfg.arm == "dml" and cfg.target == "ensemble" and self.K > 2:
+                if not comm_active:
+                    pass    # CE-only update
+                elif cfg.arm == "dml" and cfg.target == "ensemble" and self.K > 2:
                     # DML_e: single KL to the mean posterior of the OTHERS.
                     p_ens = (probs_sum - probs[i]) / (self.K - 1)
                     kd = self.loss_kl(F.log_softmax(outputs[i] / T, dim=1),
@@ -364,6 +408,8 @@ class MutualTrainer:
                         kd = kd + alpha * self.loss_kl(
                             F.log_softmax(outputs[i] / T, dim=1),
                             F.softmax(detached[j] / T, dim=1)) * (T * T)
+                if comm_active and cfg.kd_scale != 1.0:
+                    kd = kd * cfg.kd_scale
                 loss = ce + kd
                 self.optimizers[i].zero_grad()
                 loss.backward()
@@ -374,10 +420,15 @@ class MutualTrainer:
                 sums["kd"][i] += float(kd.item())
             n_batches += 1
             n_seen += int(y.size(0))
+            if comm_active:
+                n_batches_comm += 1
+                n_seen_comm += int(y.size(0))
 
         for key in sums:
             sums[key] = sums[key] / max(n_batches, 1)
         sums["n_seen"] = n_seen
+        sums["n_seen_comm"] = n_seen_comm
+        sums["comm_duty"] = n_batches_comm / max(n_batches, 1)
         return sums
 
     # ------------------------------------------------------------------
@@ -393,8 +444,9 @@ class MutualTrainer:
             return int(self.graph_degree)
         return len(self.current_matchings)
 
-    def _comm_epoch(self, n_seen: int) -> Dict[str, float]:
-        floats = float(self._degree()) * n_seen * self.num_classes
+    def _comm_epoch(self, n_seen_comm: int) -> Dict[str, float]:
+        """Bytes exchanged this epoch, billed only on communicating updates."""
+        floats = self._stream_multiplier() * n_seen_comm * self.num_classes
         ints = getattr(self, "_matcher_ints_epoch", 0.0)
         self.comm_floats_cum += floats
         self._matcher_ints_epoch = 0.0
@@ -518,7 +570,7 @@ class MutualTrainer:
             val = evaluate_cohort(self.models, self.valid_loader, self.device)
             test = evaluate_cohort(self.models, self.test_loader, self.device)
             self.cached_val = val
-            comm = self._comm_epoch(train_stats["n_seen"])
+            comm = self._comm_epoch(train_stats["n_seen_comm"])
 
             row = dict(cfg.static_row)
             row.update({
@@ -527,6 +579,9 @@ class MutualTrainer:
                 # The degree actually in effect this epoch (matchings may
                 # lag the k_anneal schedule when rematch_every_epochs > 1).
                 "k_current": self._degree(),
+                # [D-018]: realized fraction of updates that distilled, so the
+                # byte-matching can be checked from the CSV rather than assumed.
+                "comm_duty": round(train_stats["comm_duty"], 6),
                 "epoch_seconds": round(time.time() - tic, 2),
                 "avg_test_acc": float(np.mean(test["accs"])),
                 "std_test_acc": float(np.std(test["accs"])),

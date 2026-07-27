@@ -182,6 +182,15 @@ def _r2(i):  # [D-017] CIFAR-10 transfer grid: degree law + selection null
             + arms[j // 5] + ["--run_tag", "d017"])
 
 
+def _r3(i):  # [D-018] byte-matched temporally sparse dense: 6/11 updates
+    # arm 0: strict equal-byte; arm 1: same bytes at matched KD dose (11/6).
+    kd_scale = "1.0" if i < 5 else "1.833333333"
+    return ["--cohort", "resnet32:12", "--arm", "dml", "--target", "ensemble",
+            "--comm_on", "6", "--comm_block", "11",
+            "--comm_accounting", "allreduce", "--kd_scale", kd_scale,
+            "--seed", str(i % 5 + 1), "--run_tag", "d018"]
+
+
 # exp -> (index->argv, n_tasks, output_dir, sbatch script)
 GRIDS = {
     "r1": (_r1, 60, "results/suite/r1_pairs", "slurm/r1_pairs.sbatch"),
@@ -196,6 +205,8 @@ GRIDS = {
     "m7l": (_m7l, 45, "results/suite/m7l_lenet", "slurm/m7l_lenet.sbatch"),
     "m9": (_m9, 35, "results/suite/m9_zombie", "slurm/m9_zombie.sbatch"),
     "r2": (_r2, 40, "results/suite/r2_cifar10", "slurm/r2_cifar10.sbatch"),
+    "r3": (_r3, 10, "results/suite/r3_temporal_dense",
+           "slurm/r3_temporal_dense.sbatch"),
 }
 
 

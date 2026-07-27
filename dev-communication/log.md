@@ -10,6 +10,127 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-28 — Task [D-018]: R3 — the byte-matched temporally sparse dense baseline
+
+The paper's efficiency claim currently rests on a comparison that is not yet
+fair, and this is the last thing standing between it and a submission that a
+distributed-training reviewer cannot dismiss. [D-017]-era drafts asserted that
+dense DML costs Θ(K²) communication. It does not. The uniform dense objective
+depends on the peers only through their **mean** posterior — averaging first and
+distilling once gives identical student gradients, since the two expressions
+differ by a teacher-only constant — so exact dense DML needs one all-reduce of
+the posterior sum, not K−1 pairwise sends. At K=12 a ring all-reduce costs
+
+    2(K−1)/K = 22/12 = 11/6 ≈ 1.833 posterior streams per node per update,
+
+against degree-1 point-to-point's one stream per update. Dense is therefore only
+1.83× more expensive than degree-1, not 11×, and — the point of this batch — it
+**fits inside the degree-1 budget by distilling on 6 of every 11 updates**:
+
+    (6/11) × (11/6) = 1 stream per update, exactly.
+
+So the honest question the paper has not yet asked is:
+
+> At the same communication volume, is it better to sample **one fresh peer on
+> every update**, or the **exact cohort mean on 6/11 of updates**?
+
+### Design
+
+Both new arms are dense-via-aggregate (`--target ensemble`): that is what an
+all-reduce actually computes, it is gradient-identical to per-peer KLs, and it
+evaluates K KL terms instead of K(K−1). Cohort resnet32:12, CIFAR-100 clean,
+200 epochs, the standard schedule, 5 seeds — identical cohort, seeds,
+initialisations and batch order to the d011 comparators, so every readout is
+per-model paired.
+
+| idx | arm label | distils on | KD weight when active | purpose |
+|---|---|---|---|---|
+| 0–4 | `dmle-t6of11` | 6 of every 11 updates | 1 | strict equal-byte baseline |
+| 5–9 | `dmle-t6of11-dose` | 6 of every 11 updates | 11/6 | same bytes **and** same time-integrated KD dose, (6/11)×(11/6)=1 |
+
+The second arm exists because the first confounds two things: temporal-dense
+takes 6/11 as many KD updates *and* carries 6/11 of the total distillation
+pressure. The dose-matched arm holds the integrated dose at 1 and varies only
+the number of KD updates, so the two together separate "fewer KD updates" from
+"weaker total KD".
+
+**The schedule.** Update t of each block distils iff `(t*6) % 11 < 6`, which
+selects updates 1, 3, 5, 7, 9, 11 — evenly spread, and exactly 6 per block
+because gcd(6,11)=1. At 45k training images and batch 128 there are 352 batches
+per epoch and 352 = 32×11, so the duty cycle is exactly 6/11 with no partial
+block. The realized fraction is written to a new `comm_duty` CSV column every
+epoch, so the byte matching is checkable from the results rather than assumed.
+
+**Accounting.** New `--comm_accounting allreduce` bills 2(K−1)/K streams per
+communicating update instead of `degree`; the ledger is charged only on
+distilling updates. Verified end-to-end: over three epochs the scheduled arm's
+`comm_bytes_cum` is bit-equal to a degree-1 arm's at every epoch.
+
+**One honest wrinkle.** The K=12 degree-1 comparator is `mwmd1`, which also pays
+matcher probe bytes: 2 MB over the run, so it bills 3.6020 GB against
+temporal-dense's 3.6000 GB. Temporal-dense is thus 0.055% *under* budget, not
+exactly at it. The discrepancy is immaterial and it is conservative — if
+temporal-dense wins, it wins on slightly fewer bytes.
+
+### Registered predictions
+
+We genuinely do not know the sign. Every outcome is publishable, which is the
+mark of an experiment worth running:
+
+1. **tdense ≈ mwmd1** ⇒ one-peer sampling is not uniquely communication-
+   efficient; temporal subsampling of the exact mean does just as well, and the
+   paper becomes a clean comparison of two stochastic implementations of the
+   same dense objective — teacher subsampling versus temporal subsampling.
+2. **tdense < mwmd1** ⇒ the strongest version of the current claim: at equal
+   bytes, frequent access to one fresh peer beats less frequent access to the
+   exact cohort mean. The efficiency result becomes real rather than
+   accounting-only.
+3. **dose closes a gap that plain tdense does not** ⇒ the advantage is about
+   the amount or number of KD updates, not about teacher sampling at all — which
+   would redirect the paper's explanation.
+
+Prior, stated for the record: the estimator view says degree-1 is an unbiased
+estimator of the same objective with variance ~σ², while temporal-dense is a
+zero-variance estimator applied on 6/11 of steps. Neither is obviously better;
+that is exactly why it needs running.
+
+### Statistics
+
+Start with the same 5 seeds so the comparison is directly paired against the
+d011 `mwmd1`/`dml`/`indep` runs. Report final accuracy, best accuracy, accuracy
+versus cumulative bytes, and the paired difference against degree-1 with a
+seed-level 95% CI. **Extend to 10 seeds if that CI crosses ±0.3 pp** — the
+likely effects are a few tenths of a point, and this project has already been
+burned once by reading unpaired cell means as a tie: the frozen-vs-rotating
+comparison looked like an exact tie (75.60 vs 75.60) until it was recomputed as
+a seed-level paired difference, where it is +0.27 [+0.16, +0.38]. Bump
+`--array=0-19` and `SEEDS=10` in the sbatch.
+
+### Launch
+
+    python tools/stage_data.py cifar100      # login node, if not already staged
+    sbatch slurm/r3_temporal_dense.sbatch    # 10 tasks
+    # recovery:
+    IDS=$(python tools/incomplete.py r3)
+    [ -n "$IDS" ] && sbatch --array=$IDS slurm/r3_temporal_dense.sbatch
+
+Implementation: `--comm_on/--comm_block` (schedule), `--kd_scale` (dose),
+`--comm_accounting {p2p,allreduce}` (ledger), new `comm_duty` column, grid `r3`
+in `tools/incomplete.py`, 10 tests in `tests/test_comm_schedule.py`. 116 tests
+pass.
+
+### Deferred: the third arm worth running next
+
+The sharpest control is not in this batch, to keep it small: a **stale mean**
+arm that distils on *every* update against an all-reduced mean refreshed every
+~1.83 updates. It pays the same bytes, but unlike temporal-dense it keeps KD
+pressure on every step, so it isolates the one variable that actually
+distinguishes degree-1 from temporal-dense — whether the teacher is *fresh* or
+merely *present*. If tdense loses to mwmd1, this arm decides whether the cause
+is staleness or intermittency. Worth specifying once R3 reads out.
+
+---
+
 ## 2026-07-27 — Task [D-017]: R2 — CIFAR-10 transfer grid (the paper's second dataset) + paper skeleton
 
 AAAI full-paper deadline ~1 week out. Editorial verdict on the content

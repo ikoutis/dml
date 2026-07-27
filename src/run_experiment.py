@@ -60,6 +60,19 @@ def build_parser() -> argparse.ArgumentParser:
                    help="dml arm only: 'ensemble' = DML_e (averaged target)")
     p.add_argument("--arm_label", default="",
                    help="Override the auto-generated arm label in run_id")
+    # [D-018] temporally sparse communication
+    p.add_argument("--comm_on", type=int, default=0,
+                   help="distil on this many of every --comm_block updates "
+                        "(0 = every update)")
+    p.add_argument("--comm_block", type=int, default=0,
+                   help="length of the communication schedule block")
+    p.add_argument("--kd_scale", type=float, default=1.0,
+                   help="multiply the KD term on distilling updates; use "
+                        "comm_block/comm_on for a dose-matched schedule")
+    p.add_argument("--comm_accounting", default="p2p",
+                   choices=["p2p", "allreduce"],
+                   help="bill the ledger for point-to-point exchange (degree "
+                        "streams) or a ring all-reduce (2(K-1)/K streams)")
     # matched-arm knobs
     p.add_argument("--k_matchings", type=int, default=1)
     p.add_argument("--k_anneal", default="",
@@ -109,12 +122,23 @@ _WEIGHT_CODE = {"disagreement": "mwmd", "teachable": "mwmt",
                 "perclass": "mwmpc", "errorfield": "mwmef"}
 
 
+def _sched_suffix(args) -> str:
+    """[D-018]: encode the communication schedule in the arm label."""
+    if not args.comm_block or args.comm_on >= args.comm_block:
+        return ""
+    tag = f"-t{args.comm_on}of{args.comm_block}"
+    if args.kd_scale != 1.0:
+        tag += "-dose"
+    return tag
+
+
 def auto_arm_label(args) -> str:
     zomb = f"-zomb{args.zombie_slot}" if args.zombie_slot >= 0 else ""
+    sched = _sched_suffix(args)
     if args.arm == "indep":
         return "indep"
     if args.arm == "dml":
-        return ("dmle" if args.target == "ensemble" else "dml") + zomb
+        return ("dmle" if args.target == "ensemble" else "dml") + zomb + sched
     if args.arm == "topology":
         # e.g. topo-ring, topo-prism, topo-rregular3 (':' stripped)
         return "topo-" + args.graph.replace(":", "") + zomb
@@ -164,6 +188,20 @@ def main() -> None:
         parser.error("--n_valid must be >= 1 (the matcher and the "
                      "policy-facing metrics evaluate on the validation set)")
 
+    # [D-018] communication-schedule validation.
+    if bool(args.comm_on) != bool(args.comm_block):
+        parser.error("--comm_on and --comm_block must be given together "
+                     "(both omitted = distil on every update)")
+    if args.comm_block and not 0 < args.comm_on <= args.comm_block:
+        parser.error("--comm_on must satisfy 0 < comm_on <= comm_block")
+    if args.comm_block and args.arm == "indep":
+        parser.error("a communication schedule is meaningless for --arm indep")
+    if args.kd_scale <= 0:
+        parser.error("--kd_scale must be positive")
+    if args.comm_accounting == "allreduce" and args.arm != "dml":
+        parser.error("--comm_accounting allreduce describes the aggregate "
+                     "dense form; it applies to --arm dml only")
+
     # Global seeding: init + batch order shared across arms at equal seed.
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -206,6 +244,8 @@ def main() -> None:
         "run_id": run_id, "run_tag": args.run_tag,
         "cohort": args.cohort, "dataset": args.dataset, "K": K,
         "arm": args.arm, "arm_label": arm_label, "target": args.target,
+        "comm_on": args.comm_on, "comm_block": args.comm_block,
+        "kd_scale": args.kd_scale, "comm_accounting": args.comm_accounting,
         "seed": args.seed, "epochs": args.epochs,
         "batch_size": args.batch_size, "base_lr": args.lr,
         "momentum": args.momentum, "weight_decay": args.weight_decay,
@@ -245,6 +285,8 @@ def main() -> None:
         recency_gamma=args.recency_gamma,
         peel_weighting=args.peel_weighting, graph=args.graph,
         graph_seed=args.graph_seed, zombie_slot=args.zombie_slot,
+        comm_on=args.comm_on, comm_block=args.comm_block,
+        kd_scale=args.kd_scale, comm_accounting=args.comm_accounting,
         seed=args.seed, device=device,
         output_dir=args.output_dir, checkpoint_every=args.checkpoint_every,
         resume=args.resume, verbose=args.verbose, trap_usr1=True,
