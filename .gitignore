@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# datasets are staged, never committed
+data/cifar-100-python/
+data/cifar-10-batches-py/
+data/*.tar.gz
+
+# checkpoints are big and resumable-local; CSVs ARE tracked
+*_ckpt.pt
+*_ckpt.pt.tmp
+ckpt/*.pth.tar
+
+# SLURM stdout (stderr .err files ARE tracked, KD convention)
+results/logs/*.log
+
+# tensorboard event files from the legacy trainer
+logs/model/
