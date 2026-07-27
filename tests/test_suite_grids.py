@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from incomplete import GRIDS, compress, run_id_for  # noqa: E402
 
 EXPECTED_SIZES = {"r1": 60, "m1": 60, "m2": 20, "m3": 25, "m4": 15,
-                  "m5": 5, "m6": 30, "m1b": 10, "m7": 80, "m7l": 45, "m9": 35}
+                  "m5": 5, "m6": 30, "m1b": 10, "m7": 80, "m7l": 45, "m9": 35, "r2": 40}
 # base suite (experiments.md §6); m1b [D-007] and m7 [D-011] are follow-ups.
 _BASE_SUITE = ("r1", "m1", "m2", "m3", "m4", "m5", "m6")
 

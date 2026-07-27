@@ -171,6 +171,17 @@ def _m9(i):  # [D-015] controlled epidemiology: one zombie, resnet32:12, clean
     return argv + ["--run_tag", "d015"]
 
 
+def _r2(i):  # [D-017] CIFAR-10 transfer grid: degree law + selection null
+    noise = "0.0" if i < 20 else "0.4"
+    j = i % 20
+    arms = [["--arm", "indep"], ["--arm", "dml"],
+            ["--arm", "matched", "--match_weight", "random"],
+            ["--arm", "matched", "--match_weight", "disagreement"]]
+    return (["--dataset", "cifar10", "--cohort", "resnet32:8",
+             "--label_noise_rate", noise, "--seed", str(j % 5 + 1)]
+            + arms[j // 5] + ["--run_tag", "d017"])
+
+
 # exp -> (index->argv, n_tasks, output_dir, sbatch script)
 GRIDS = {
     "r1": (_r1, 60, "results/suite/r1_pairs", "slurm/r1_pairs.sbatch"),
@@ -184,6 +195,7 @@ GRIDS = {
     "m7": (_m7, 80, "results/suite/m7_topology", "slurm/m7_topology.sbatch"),
     "m7l": (_m7l, 45, "results/suite/m7l_lenet", "slurm/m7l_lenet.sbatch"),
     "m9": (_m9, 35, "results/suite/m9_zombie", "slurm/m9_zombie.sbatch"),
+    "r2": (_r2, 40, "results/suite/r2_cifar10", "slurm/r2_cifar10.sbatch"),
 }
 
 

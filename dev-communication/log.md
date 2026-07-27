@@ -10,6 +10,31 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-27 — Task [D-017]: R2 — CIFAR-10 transfer grid (the paper's second dataset) + paper skeleton
+
+AAAI full-paper deadline ~1 week out. Editorial verdict on the content
+(discussion, this date): substance sufficient; the one disqualifying gap is
+single-dataset evidence. R2 closes it with a reduced grid transferring the two
+load-bearing claims to CIFAR-10 at the headline cell:
+
+- **Degree law:** indep vs rand1 (one random partner) vs dense.
+- **Selection null:** mwmd1 (MWM on disagreement) vs rand1.
+- resnet32:8, clean + 40% noise, 5 seeds → **40 tasks**,
+  `sbatch slurm/r2_cifar10.sbatch` (stage first:
+  `python tools/stage_data.py cifar10` on a login node). Tag d017.
+
+Registered expectations: same ordering as CIFAR-100 (indep ≪ rand1 ≈ mwmd1 ≲
+dense), smaller absolute gaps (CIFAR-10 is easier; less headroom), noise cell
+shows the conversion effect. Any inversion would be a finding, not a failure.
+
+**Paper plan (shape A of the discussion):** communication-efficiency paper with
+failure-propagation as the second pillar. Skeleton committed at
+`dev-communication/paper_outline.md`, mapping every section to the log entries
+and result tables that feed it. Writing proceeds while R2 cooks; R2 lands as
+one transfer table + one abstract clause.
+
+---
+
 ## 2026-07-23 — Reply to [D-015]: M9 COMPLETE (35/35) — the full dose-response + healing law of zombie damage
 
 Final table (per-model deltas, paired against the bit-identical d011 anchors):
