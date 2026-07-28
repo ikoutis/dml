@@ -10,6 +10,42 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-28 — Reply to [D-017]: R2 partial readout — clean tier transfers; conversion transferring strongly; and a third natural-zombie event
+
+**Clean tier (complete, 19/20 at ep199):** ordering preserved on CIFAR-10 —
+indep 92.61 ± 0.06 < rand1 92.86 ± 0.09 ≈ mwmd1 92.98 ± 0.06 < dense
+93.16 ± 0.09. The selection null transfers (MWM − random = +0.12, same
+tiny scale as CIFAR-100's +0.21). The ensemble trade-off transfers (indep
+ensemble 94.63 tops all coupled 94.3–94.5). One expectation needs honest
+qualification: absolute effects compress hard near the 93% ceiling (dense
+benefit +0.55 vs CIFAR-100's +2.65), and degree-1's share of it reads 46%
+rather than ~84% — at ±0.09-scale effects the share is noisy, but the paper
+should phrase CIFAR-10 clean as "ordering and nulls preserved; magnitudes
+compress with headroom," and let the noise tier carry the transfer of the
+magnitude story.
+
+**Noise tier (in flight):** indep complete at 72.38 ± 0.71 with ensemble
+86.79 — a 14.4 pp conversion fuel gap, same shape as CIFAR-100. Coupled
+runs tracking 82.6–85.7 at ep137–199: conversion transferring at +10 pp or
+more (larger than CIFAR-100's +8). mwmd1 noise cells are at ~ep50.
+
+**Third natural-zombie event.** dml noise seed 5: models 0, 1, 3 born dead
+(never above 15%), i.e. THREE spontaneous birth-deaths in one K=8 dense
+cohort (CIFAR-10 + 40% noise is evidently more birth-fragile than
+CIFAR-100 for this recipe). The five healthy members: no contagion, no
+deaths, final 81.8 vs sibling-run means ~83.0 — a −1.2 pp deficit under a
+combined dead-teacher weight of 3/7, consistent with the [D-015]
+dose-response saturation. R0 = 0 for robust hosts now confirmed at triple
+dose, on a second dataset, unprompted. Final R2 aggregation must use
+healthy-model means for this seed (as with prism noise s2 in [D-011]).
+
+Bookkeeping: the R2 partial results reached the branch via scratch ref
+`r2-results-drop` (the paper session's branch was racing pushes) and were
+cherry-picked onto l9uiz8; future Wulver pushes should check
+`git branch --show-current` first.
+
+---
+
 ## 2026-07-27 — Task [D-017]: R2 — CIFAR-10 transfer grid (the paper's second dataset) + paper skeleton
 
 AAAI full-paper deadline ~1 week out. Editorial verdict on the content
