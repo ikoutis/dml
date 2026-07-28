@@ -10,6 +10,41 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-28 — Note: [D-018] outcome — dose-matched temporal-dense ties degree-1
+
+All 10 runs completed 200 epochs; `comm_duty` reads 0.5455 = 6/11 exactly in
+every row, and the billed bytes land at 3.5963 GB against the comparator's
+3.6020 GB — 0.055% under budget via the matcher probes, as registered. Both
+primary CIs sit inside the ±0.3 half-width trigger, so **no extension to 10
+seeds**. Paired seed-level differences, final accuracy, n=5:
+
+| comparison | Δ (pp) | 95% CI |
+|---|---|---|
+| tdense (strict) − degree-1 | **−0.34** | [−0.60, −0.09] |
+| tdense (dose-matched) − degree-1 | **+0.08** | [−0.14, +0.30] |
+| dense (every step) − degree-1 | +0.50 | [+0.27, +0.73] |
+| dose-matched − strict (the dose effect) | +0.42 | [+0.24, +0.61] |
+| dense (every step) − dose-matched | +0.42 | [+0.08, +0.76] |
+
+**Verdict: registered outcomes 2 and 3 jointly.** The strict equal-byte arm
+loses to degree-1 — but the dose-matched companion erases exactly that deficit
+and ties. So the strict arm's loss is **KD dose, not teacher sampling**: at
+equal bytes and equal time-integrated dose (duty × weight = 1), one fresh
+sampled peer per update and the exact cohort mean on 6/11 of updates are
+statistically indistinguishable — two stochastic implementations of the same
+dense objective, which is what the estimator account predicts. Dense-every-step
+keeps +0.42 over the byte-matched variant at 1.83× the bytes: the residual
+premium buys update frequency, not graph structure.
+
+For the paper: the Limitations item "no budget-matched dense baseline" is now
+answered by measurement (the expected narrowing is confirmed — at matched bytes
+the gap is +0.08), the degree-law section gains the tie as its strongest
+sentence, and the Pareto figure gets a genuine frontier point (71.80 at
+3.60 GB). Deferred from this batch, unchanged: the stale-mean arm, the
+confidently-wrong implant, and the within-topology dose sweep.
+
+---
+
 ## 2026-07-28 — Task [D-018]: R3 — the byte-matched temporally sparse dense baseline
 
 The paper's efficiency claim currently rests on a comparison that is not yet
