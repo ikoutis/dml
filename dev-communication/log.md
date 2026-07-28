@@ -10,6 +10,25 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-28 — Note: sequential order of original DML verified in the official code
+
+The paper's claim that the original DML updates networks sequentially rests on
+Algorithm 1 of 1706.00384 (step 3 recomputes p1, p2 between the two parameter
+updates). Doubt was raised about whether the pseudocode is faithful to the
+intent, so the official TensorFlow release was checked
+(YingZhangDUT/Deep-Mutual-Learning, train_models.py): it builds one train op
+per network and runs them **one at a time in a loop with separate sess.run
+calls**. Under TF1 graph execution each call re-runs the peers' forward passes
+against current variables, so later networks imitate already-updated peers —
+Algorithm 1's step 3, realized by the execution model. With queue-fed input,
+separate sess.run calls may even draw different batches per network, making
+the reference implementation more asynchronous than the pseudocode, not less.
+Conclusion: the sequential description (and the simultaneity scoping of the
+one-all-reduce corollary) is faithful to both the published algorithm and the
+released code.
+
+---
+
 ## 2026-07-28 — Note: [D-018] outcome — dose-matched temporal-dense ties degree-1
 
 All 10 runs completed 200 epochs; `comm_duty` reads 0.5455 = 6/11 exactly in
