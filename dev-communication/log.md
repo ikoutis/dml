@@ -10,6 +10,41 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-28 — Note: seed-clustered failure inference (analysis/failure_seed_readout.py)
+
+Review round 7 flagged pseudoreplication in the failure section: p-values
+pooled neighbor models across runs as independent observations. New tool
+`analysis/failure_seed_readout.py` recomputes every inferential claim with
+the SEED as the replication unit (per-seed shell averages, t over n=5;
+cluster bootstrap over seeds for the recency correlation). The pooled column
+reproduces the paper's numbers exactly. Seed-clustered verdicts:
+
+| claim | pooled | seed-level | verdict |
+|---|---|---|---|
+| ring distance-1 | −0.96, p=4.4e−4 | −0.96 [−1.54,−0.39], p=0.0098 | survives (p<0.01) |
+| prism victims | −0.93, p=1.7e−5 | −0.93 [−1.16,−0.69], p=4.2e−4 | survives |
+| expander victims | −0.86, p=3.4e−4 | −0.86 [−1.59,−0.13], p=0.031 | survives |
+| dense α=1/11 | −0.13, p=0.014 | −0.13 [−0.31,+0.05], p=0.11 | **crosses 0.05** |
+| sealed clique | −1.22, p=1.2e−8 | −1.22 [−1.45,−0.98], p=1.3e−4 | survives |
+| clique outsiders | +0.03, p=0.72 | +0.03 [−0.25,+0.30], p=0.8 | null unchanged |
+| prism 2nd shell | −0.35, p=4.9e−4 | −0.35 [−0.57,−0.13], p=0.011 | survives |
+| pulsed matched-1 | −0.45, p=0.021 | −0.45 [−0.60,−0.31], p=0.00098 | **stronger** |
+| recency ≤10 ep | −0.69, p=0.011 | −0.70 [−0.92,−0.49], p=0.00083 | **stronger** |
+| recency 11–30 ep | +0.11, n.s. | +0.05 [−0.50,+0.61], n.s. | null unchanged |
+| recency corr | r=+0.29, p=.03 | bootstrap CI [+0.23,+0.37] | robust |
+
+Notes: the paper's ±0.54 for ring d1 was a population-SD figure; ddof=1 gives
+±0.57. The pulsed and recency results STRENGTHEN under clustering because the
+±1.40 variance is within-seed (recency-driven), so seed means are stable —
+the correction cuts both ways. The only casualty is the significance of the
+small dense-weight damage (−0.13), which the main text never claimed as
+significant. Paper updates pending: Fig 3 caption p<10⁻³ → p<0.01
+(seed-level), recency correlation → bootstrap CI, supplementary Appendix D
+p-values → seed-level, Appendix F statistics paragraph → name the seed as
+the failure-section replication unit.
+
+---
+
 ## 2026-07-28 — Note: sequential order of original DML verified in the official code
 
 The paper's claim that the original DML updates networks sequentially rests on
