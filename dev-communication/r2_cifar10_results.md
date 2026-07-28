@@ -5,11 +5,13 @@ numbers, provenance, caveats, and the update protocol are here. Cross-refs:
 design + registered expectations in `log.md` [D-017]; partial readout in the
 2026-07-28 reply to [D-017].
 
-**Status: PARTIAL (updated 2026-07-28).**
+**Status: PARTIAL (updated 2026-07-28, second push).**
 - Clean tier: **complete** (19/20 at ep199; mwmd1 s3 at ep195, included).
-- Noise tier: **in flight** — indep complete (5/5); dml/rand1/mwmd1 pending.
-- ⚠ Numbers marked **TBD** below get filled when the noise tier drains.
-  Everything else is final and safe to typeset.
+- Noise tier: indep **complete** (5/5), dense **complete** (5/5), rand1 2/5
+  final (rest ≥ ep98, tracking 82.5–83.2), mwmd1 0/5 (all ~ep98, tracking
+  82.0–82.8).
+- ⚠ rand1/mwmd1 cells marked partial get finalized when their runs drain.
+  indep, dense, and everything in the clean tier are final.
 
 ## What R2 is
 
@@ -52,15 +54,24 @@ Derived (clean):
 | arm | CIFAR-10 acc | CIFAR-10 ens | CIFAR-100 acc (ref, K=12 tier) |
 |---|---|---|---|
 | indep | **72.38 ± 0.71** (final) | **86.79** | 50.63 |
-| rand1 | TBD (tracking 82.6–85.7 at ep137–199) | TBD | 58.34 (mwmd1) |
-| mwmd1 | TBD (runs at ~ep50) | TBD | — |
-| dense | TBD (runs at ep172–194; see anomaly) | TBD | 59.22 |
+| rand1 | 82.83 ± 0.27 (partial, n=2 final; rest tracking 82.5–83.2) | 88.47 | 58.34 (mwmd1) |
+| mwmd1 | TBD (all runs ~ep98, tracking 82.0–82.8) | TBD | — |
+| dense | **82.16 ± 0.77** (final, s5 healthy-mean; excl. s5: 82.50 ± 0.33) | 88.21 | 59.22 |
 
-Already safe to state: the conversion-fuel gap transfers — indep
-ensemble−individual gap is **14.4 pp** on CIFAR-10 (86.79 vs 72.38) vs 14.2
-on CIFAR-100 — and in-flight coupled runs are tracking a conversion of
-**≥ +10 pp**, larger than CIFAR-100's +8. Do not typeset the exact coupled
-numbers until final; the shape is locked, the digits are not.
+Derived (noise, safe to state now):
+- **Conversion transfers and is LARGER on CIFAR-10:** dense recovers
+  **+9.8 pp** over indep (+10.1 excluding the zombie-damaged s5) vs +8.6 on
+  CIFAR-100. The conversion-fuel gap is near-identical across datasets
+  (indep ens−ind gap 14.4 vs 14.2 pp).
+- **Degree-1 captures essentially ALL of it:** rand1 82.83 ≥ dense
+  82.16–82.50 at the current n=2 (in-flight seeds consistent at 82.5–83.2).
+  On CIFAR-10 noise the single random partner matches or slightly exceeds
+  dense — stronger than CIFAR-100's 90% share. If this holds at n=5, the
+  CIFAR-10 noise cell is the paper's cleanest "sparse ⊇ dense" datapoint.
+- Ensemble ordering consistent: rand1 ens 88.47 > dense ens 88.21 (sparse
+  preserves more diversity), both above indep individuals' recovery.
+- Digits for rand1/mwmd1 may still move a few tenths at their final LR
+  epochs; the ordering and magnitudes above are stable.
 
 ## Anomaly protocol (MUST respect in aggregation)
 
@@ -73,9 +84,11 @@ dose–response saturation; quotable as independent confirmation of R0 = 0 for
 robust hosts (second dataset, triple dose).
 **Aggregation rule:** for this seed use the healthy-model mean
 (`mean of model_XX_test_acc over models {2,4,5,6,7}`), and footnote it, as
-done for prism noise s2 in the CIFAR-100 tables. If other noise-tier seeds
-show the same signature when they finish (check per-model finals < 15%),
-apply the same rule and update this section.
+done for prism noise s2 in the CIFAR-100 tables. Checked at the
+second push: **no other noise-tier run shows dead models** — s5 remains the
+only affected seed. Its healthy-mean (80.7) carries the expected zombie
+damage and depresses the dense mean by ~0.3; the table reports both
+including and excluding it.
 
 ## Recommended paper phrasing (agreed in discussion)
 
