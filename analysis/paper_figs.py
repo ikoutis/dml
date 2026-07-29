@@ -140,7 +140,7 @@ def fig_damage():
     ax1.errorbar(ds, means, yerr=errs, fmt="o-", color=C["sparse"], lw=1.2,
                  capsize=2, ms=3.5)
     ax1.axhline(0, color="k", lw=0.6, alpha=0.5)
-    ax1.set_xlabel("ring distance from dead model")
+    ax1.set_xlabel("ring distance from broken model")
     ax1.set_ylabel("paired damage (pp)")
     ax1.set_title("ring damage is one-hop local", fontsize=8)
 
@@ -168,7 +168,7 @@ def fig_damage():
         ax2.annotate(lab, xy=(alpha, m), xytext=(4, -3),
                      textcoords="offset points", fontsize=7)
     ax2.axhline(0, color="k", lw=0.6, alpha=0.5)
-    ax2.set_xlabel(r"dead-teacher weight $\alpha$ in victim's KD mix")
+    ax2.set_xlabel(r"broken-teacher weight $\alpha$ in victim's KD mix")
     ax2.set_ylabel("victim damage (pp)")
     ax2.set_title("dose response consistent with saturation", fontsize=8)
     fig.tight_layout()
