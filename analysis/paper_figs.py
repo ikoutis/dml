@@ -170,7 +170,7 @@ def fig_damage():
     ax2.axhline(0, color="k", lw=0.6, alpha=0.5)
     ax2.set_xlabel(r"dead-teacher weight $\alpha$ in victim's KD mix")
     ax2.set_ylabel("victim damage (pp)")
-    ax2.set_title("chronic dose–response saturates", fontsize=8)
+    ax2.set_title("dose response consistent with saturation", fontsize=8)
     fig.tight_layout()
     fig.savefig(f"{OUT}/damage.pdf")
 
