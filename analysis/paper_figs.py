@@ -142,7 +142,7 @@ def fig_damage():
     ax1.axhline(0, color="k", lw=0.6, alpha=0.5)
     ax1.set_xlabel("ring distance from dead model")
     ax1.set_ylabel("paired damage (pp)")
-    ax1.set_title("damage is one-hop local", fontsize=8)
+    ax1.set_title("ring damage is one-hop local", fontsize=8)
 
     # right: dose-response points (chronic) + pulsed
     pts = []  # (dose, damage, sem, label)
