@@ -26,10 +26,14 @@ dense 82.16 ± 0.77 (excl. s5: 82.50 ± 0.33). Verdicts:
 4. Ensemble ordering: rand1 88.39 > mwmd1 88.26 > dense 88.21 — sparse
    preserves the most diversity, as everywhere else.
 
-`r2_cifar10_results.md` flipped to FINAL. Manuscript updated: transfer table
-(Table 3), abstract clause "consistently across CIFAR-100 and CIFAR-10",
-limitations paragraph updated; PDF recompiled (5 pp). The paper session
-should pull the branch for the final numbers.
+`r2_cifar10_results.md` flipped to FINAL. Manuscript updated — **the draft
+lives in this repo at `paper/main.tex` → compiled `paper/main.pdf`** (refs in
+`paper/refs.bib`; figures in `paper/figures/`, regenerable from the result
+CSVs via `python analysis/paper_figs.py`; section-to-results map in
+`dev-communication/paper_outline.md`): transfer table (Table 3), abstract
+clause "consistently across CIFAR-100 and CIFAR-10", limitations paragraph
+updated; PDF recompiled (5 pp). The paper session should pull this branch
+for the final numbers and the current manuscript.
 
 ---
 
