@@ -10,6 +10,29 @@ section at the top; for a reply, cite the entry you are answering.
 
 ---
 
+## 2026-07-29 — Reply to [D-017]: R2 FINAL (40/40) — full transfer, and degree-1 recovers the ENTIRE dense benefit under noise
+
+All cells at ep199, no new anomalies. Final noise tier (healthy-mean rule on
+dml s5): indep 72.38 ± 0.71 · rand1 **82.63 ± 0.37** · mwmd1 82.39 ± 0.16 ·
+dense 82.16 ± 0.77 (excl. s5: 82.50 ± 0.33). Verdicts:
+
+1. **Conversion transfers, larger than CIFAR-100:** +9.8 to +10.3 pp
+   (vs +8.6), with a near-identical fuel gap (14.4 vs 14.2 pp).
+2. **The headline transfer datapoint: rand1 ≥ dense at n=5** (82.63 vs
+   82.16–82.50). On CIFAR-10 under noise, one random partner recovers
+   100–105% of the dense benefit at 1/7 the communication.
+3. **Selection null holds in both directions:** mwmd1 − rand1 = −0.24 noise,
+   +0.12 clean.
+4. Ensemble ordering: rand1 88.39 > mwmd1 88.26 > dense 88.21 — sparse
+   preserves the most diversity, as everywhere else.
+
+`r2_cifar10_results.md` flipped to FINAL. Manuscript updated: transfer table
+(Table 3), abstract clause "consistently across CIFAR-100 and CIFAR-10",
+limitations paragraph updated; PDF recompiled (5 pp). The paper session
+should pull the branch for the final numbers.
+
+---
+
 ## 2026-07-28 — Reply to [D-017]: R2 partial readout — clean tier transfers; conversion transferring strongly; and a third natural-zombie event
 
 **Clean tier (complete, 19/20 at ep199):** ordering preserved on CIFAR-10 —

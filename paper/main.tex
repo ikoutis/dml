@@ -28,8 +28,9 @@ communication cost is quadratic in the cohort size: $\Theta(K^2)$ pairwise
 imitation terms per round. We show this cost is almost entirely unnecessary.
 Coupling each network to a single peer per round, re-paired at random, reduces
 communication from quadratic to linear---$\Theta(K)$---yet recovers almost the
-entire benefit of dense DML, across CIFAR-100 cohorts of both homogeneous and
-heterogeneous networks under both clean and heavily label-corrupted training.
+entire benefit of dense DML---consistently across CIFAR-100 and CIFAR-10,
+homogeneous and heterogeneous cohorts, and clean and heavily label-corrupted
+training.
 Under a matched communication budget the advantage is decisive: allotted only
 the bandwidth a single-partner cohort spends to converge ($\approx$72\% test
 accuracy), dense DML reaches just $\approx$41\%---a 31-point gap on the
@@ -239,6 +240,42 @@ knowledge into individual competence, at a cost to the ensemble itself.}
 \label{fig:conversion}
 \end{figure}
 
+\begin{table}[t]
+\centering\small
+\caption{Dataset transfer (CIFAR-10, ResNet-32 $\times 8$, 5 seeds): the
+ordering, both nulls, and the conversion effect replicate. Under noise the
+single random partner recovers the \emph{entire} dense benefit at $1/7$ the
+communication.}
+\label{tab:transfer}
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{clean} & \multicolumn{2}{c}{40\% noise}\\
+arm & acc & ens & acc & ens\\
+\midrule
+independent & 92.61 & 94.63 & 72.38 & 86.79\\
+random-1    & 92.86 & 94.31 & \textbf{82.63} & 88.39\\
+MWM-1       & 93.02 & 94.36 & 82.39 & 88.26\\
+dense       & 93.16 & 94.47 & 82.16$^{\dagger}$ & 88.21\\
+\bottomrule
+\multicolumn{5}{l}{\scriptsize $^{\dagger}$healthy-model mean; one run
+contained three spontaneously}\\[-2pt]
+\multicolumn{5}{l}{\scriptsize collapsed members with no contagion
+(\S\ref{sec:failure}).}
+\end{tabular}
+\end{table}
+
+\textbf{Dataset transfer.} Table~\ref{tab:transfer} repeats the headline
+cell on CIFAR-10. Every qualitative claim replicates: the ordering
+(independent $<$ sparse $\approx$ sparse $<$ dense), the selection null
+(MWM $-$ random $= +0.12$ clean, $-0.24$ noise), and the ensemble trade-off
+(independent ensembles on top). Clean-tier magnitudes compress with the
+reduced headroom near the 93\% ceiling (dense benefit $+0.55$); the noise
+tier carries the magnitude story, where conversion is \emph{larger} than on
+CIFAR-100 ($+9.8$ to $+10.3$ points, fuel gap 14.4 vs 14.2) and the single
+random partner recovers the entire dense benefit ($82.63$ vs
+$82.16$--$82.50$)---the sharpest single datapoint for the communication
+claim in the study.
+
 \textbf{Why coupling helps: conversion.} The noise cell
 (Fig.~\ref{fig:conversion}) exposes the mechanism. Independent training under
 40\% label noise leaves individuals at 50.6\% while their ensemble attains
@@ -382,8 +419,8 @@ $K$, or wherever the coupling must cross a network. The fault-tolerance
 argument binds anywhere a member can silently degrade---which is everywhere.
 
 \textbf{Limitations.} Our evidence base is CIFAR-scale classification under
-a single training recipe (a CIFAR-10 transfer grid for the headline cells is
-running at submission time); the fragile-host collapse is recipe-dependent
+a single training recipe (the CIFAR-10 transfer grid of
+Table~\ref{tab:transfer} being the second dataset); the fragile-host collapse is recipe-dependent
 (warmup would likely mute patient zero, though not the propagation law it
 revealed); capacity and stability are confounded in the LeNet probe; and the
 per-cell effects that separate structured alternatives are tenths of a

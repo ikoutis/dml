@@ -5,13 +5,9 @@ numbers, provenance, caveats, and the update protocol are here. Cross-refs:
 design + registered expectations in `log.md` [D-017]; partial readout in the
 2026-07-28 reply to [D-017].
 
-**Status: PARTIAL (updated 2026-07-28, second push).**
-- Clean tier: **complete** (19/20 at ep199; mwmd1 s3 at ep195, included).
-- Noise tier: indep **complete** (5/5), dense **complete** (5/5), rand1 2/5
-  final (rest ≥ ep98, tracking 82.5–83.2), mwmd1 0/5 (all ~ep98, tracking
-  82.0–82.8).
-- ⚠ rand1/mwmd1 cells marked partial get finalized when their runs drain.
-  indep, dense, and everything in the clean tier are final.
+**Status: FINAL (2026-07-29). All 40 runs at ep199; no new anomalies.**
+Safe to typeset everything below. The manuscript (`paper/main.tex`) carries
+the transfer table and the abstract clause as of this date.
 
 ## What R2 is
 
@@ -35,7 +31,7 @@ from `results/suite/m1_headline` (tag d001).
 |---|---|---|---|
 | indep | 92.61 ± 0.06 | 94.63 | 69.39 ± 0.14 |
 | rand1 | 92.86 ± 0.09 | 94.31 | 71.44 ± 0.25 |
-| mwmd1 | 92.98 ± 0.06 | 94.34 | 71.66 ± 0.15 |
+| mwmd1 | 93.02 ± 0.08 | 94.36 | 71.66 ± 0.15 |
 | dense | 93.16 ± 0.09 | 94.47 | 72.04 ± 0.08 |
 
 Derived (clean):
@@ -49,29 +45,27 @@ Derived (clean):
 - Ensemble trade-off transfers: indep ensemble (94.63) > all coupled
   ensembles (94.31–94.47), as on CIFAR-100 ([D-010]).
 
-## Noise tier (40% symmetric) — PARTIAL
+## Noise tier (40% symmetric) — FINAL
 
 | arm | CIFAR-10 acc | CIFAR-10 ens | CIFAR-100 acc (ref, K=12 tier) |
 |---|---|---|---|
-| indep | **72.38 ± 0.71** (final) | **86.79** | 50.63 |
-| rand1 | 82.83 ± 0.27 (partial, n=2 final; rest tracking 82.5–83.2) | 88.47 | 58.34 (mwmd1) |
-| mwmd1 | TBD (all runs ~ep98, tracking 82.0–82.8) | TBD | — |
-| dense | **82.16 ± 0.77** (final, s5 healthy-mean; excl. s5: 82.50 ± 0.33) | 88.21 | 59.22 |
+| indep | 72.38 ± 0.71 | 86.79 | 50.63 |
+| rand1 | **82.63 ± 0.37** | 88.39 | 58.34 (mwmd1) |
+| mwmd1 | 82.39 ± 0.16 | 88.26 | — |
+| dense | 82.16 ± 0.77 (s5 healthy-mean; excl. s5: 82.50 ± 0.33) | 88.21 | 59.22 |
 
-Derived (noise, safe to state now):
-- **Conversion transfers and is LARGER on CIFAR-10:** dense recovers
-  **+9.8 pp** over indep (+10.1 excluding the zombie-damaged s5) vs +8.6 on
-  CIFAR-100. The conversion-fuel gap is near-identical across datasets
-  (indep ens−ind gap 14.4 vs 14.2 pp).
-- **Degree-1 captures essentially ALL of it:** rand1 82.83 ≥ dense
-  82.16–82.50 at the current n=2 (in-flight seeds consistent at 82.5–83.2).
-  On CIFAR-10 noise the single random partner matches or slightly exceeds
-  dense — stronger than CIFAR-100's 90% share. If this holds at n=5, the
-  CIFAR-10 noise cell is the paper's cleanest "sparse ⊇ dense" datapoint.
-- Ensemble ordering consistent: rand1 ens 88.47 > dense ens 88.21 (sparse
-  preserves more diversity), both above indep individuals' recovery.
-- Digits for rand1/mwmd1 may still move a few tenths at their final LR
-  epochs; the ordering and magnitudes above are stable.
+Derived (noise, FINAL):
+- **Conversion transfers and is LARGER on CIFAR-10:** dense +9.78 pp over
+  indep (+10.12 excl. s5) vs +8.6 on CIFAR-100; conversion-fuel gap
+  near-identical across datasets (14.4 vs 14.2 pp).
+- **Degree-1 captures ALL of it — the headline transfer datapoint:** rand1
+  82.63 ≥ dense 82.16–82.50 at n=5. On CIFAR-10 under noise the single
+  random partner recovers the ENTIRE dense benefit (share ≈ 100–105%) at
+  1/7 the communication — stronger than CIFAR-100's 90%.
+- Selection null, final: mwmd1 − rand1 = **−0.24** (MWM slightly BELOW
+  random; the null holds in both directions across datasets).
+- Ensemble ordering consistent: rand1 88.39 > mwmd1 88.26 > dense 88.21,
+  all above indep's 86.79 — sparse preserves the most diversity.
 
 ## Anomaly protocol (MUST respect in aggregation)
 
@@ -96,10 +90,11 @@ including and excluding it.
   (indep < sparse ≈ sparse < dense; selection ties random; independent
   ensembles stay on top); absolute magnitudes compress with the reduced
   headroom near the 93% ceiling."
-- Noise: carries the magnitude story — conversion of ≥ +10 pp with the same
-  ensemble-gap mechanism. (Fill exact numbers when final.)
-- Abstract clause (add when noise tier is final): "consistent across
-  CIFAR-100 and CIFAR-10."
+- Noise: carries the magnitude story — conversion of +9.8 to +10.3 pp with
+  the same ensemble-gap mechanism, and degree-1 recovering the entire dense
+  benefit.
+- Abstract clause (now in main.tex): "consistent across CIFAR-100 and
+  CIFAR-10."
 - Do NOT claim "84% of dense benefit" for CIFAR-10 clean; that share is a
   CIFAR-100 statement. The transfer claim is ordering + nulls + conversion.
 
