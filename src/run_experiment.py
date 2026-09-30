@@ -73,6 +73,11 @@ def build_parser() -> argparse.ArgumentParser:
                    choices=["p2p", "allreduce"],
                    help="bill the ledger for point-to-point exchange (degree "
                         "streams) or a ring all-reduce (2(K-1)/K streams)")
+    p.add_argument("--update_order", default="simultaneous",
+                   choices=["simultaneous", "sequential"],
+                   help="'sequential' = original DML Algorithm 1: models step "
+                        "in turn and later models distil from earlier "
+                        "models' post-step predictions")
     # matched-arm knobs
     p.add_argument("--k_matchings", type=int, default=1)
     p.add_argument("--k_anneal", default="",
@@ -133,6 +138,13 @@ def _sched_suffix(args) -> str:
 
 
 def auto_arm_label(args) -> str:
+    label = _base_arm_label(args)
+    if args.update_order == "sequential" and args.arm != "indep":
+        label += "-seq"
+    return label
+
+
+def _base_arm_label(args) -> str:
     zomb = f"-zomb{args.zombie_slot}" if args.zombie_slot >= 0 else ""
     sched = _sched_suffix(args)
     if args.arm == "indep":
@@ -272,6 +284,9 @@ def main() -> None:
         # would crash --resume of pre-change runs whose CSV headers (pinned
         # by CsvWriter) lack it — [D-015] review finding.
         static_row["zombie_slot"] = args.zombie_slot
+    if args.update_order != "simultaneous":
+        # Same reasoning: only sequential runs carry the column.
+        static_row["update_order"] = args.update_order
 
     cfg = TrainerConfig(
         run_id=run_id, arm=args.arm, arm_label=arm_label, target=args.target,
@@ -287,7 +302,7 @@ def main() -> None:
         graph_seed=args.graph_seed, zombie_slot=args.zombie_slot,
         comm_on=args.comm_on, comm_block=args.comm_block,
         kd_scale=args.kd_scale, comm_accounting=args.comm_accounting,
-        seed=args.seed, device=device,
+        update_order=args.update_order, seed=args.seed, device=device,
         output_dir=args.output_dir, checkpoint_every=args.checkpoint_every,
         resume=args.resume, verbose=args.verbose, trap_usr1=True,
         static_row=static_row)

@@ -23,6 +23,14 @@ batch. This holds identically in every arm. (The original DML paper describes
 alternating/sequential updates; the root-level legacy trainer.py is
 effectively simultaneous. We standardize on simultaneous everywhere.)
 
+``update_order='sequential'`` reproduces the original paper's Algorithm 1
+instead: models step one at a time in slot order, and after model i steps
+its logits on the same batch are recomputed (train mode, no grad) so every
+later model in the batch distils from i's already-updated prediction. The
+student side is unchanged: model i has not stepped before its own turn, so
+its pre-step forward is still current. Kept as an opt-in control for the
+update-order question; every suite result uses the simultaneous default.
+
 Total mimicry mass is 1 in every coupled arm (dense averages K-1 KLs;
 matched arms normalize their k alphas to sum to 1), so arms differ in the
 STRUCTURE of the mimicry signal and in communication, not in loss magnitude.
@@ -118,6 +126,10 @@ class TrainerConfig:
     # 'allreduce' bills 2(K-1)/K streams, the ring-all-reduce cost of the
     # aggregate form, which is what exact dense DML actually needs.
     comm_accounting: str = "p2p"
+    # 'simultaneous' (default: all forwards precede all steps) or
+    # 'sequential' (original DML Algorithm 1: later models in a batch see
+    # earlier models' post-step predictions). See the module docstring.
+    update_order: str = "simultaneous"
     # bookkeeping
     seed: int = 1
     device: str = "cuda"
@@ -151,6 +163,8 @@ class MutualTrainer:
                  num_classes: int, n_valid: int):
         if cfg.arm not in ARMS:
             raise ValueError(f"Unknown arm '{cfg.arm}'. Arms: {ARMS}")
+        if cfg.update_order not in ("simultaneous", "sequential"):
+            raise ValueError(f"Unknown update_order '{cfg.update_order}'")
         self.cfg = cfg
         self.slots = slots
         self.K = len(slots)
@@ -377,9 +391,13 @@ class MutualTrainer:
             x = x.to(self.device, non_blocking=True)
             y = y.to(self.device, non_blocking=True)
 
-            # Simultaneous update: all forwards precede all steps.
+            # All forwards precede the first step. Under the simultaneous
+            # order these are every model's targets for the whole batch;
+            # under the sequential order `detached[i]` is refreshed right
+            # after model i steps (below).
             outputs = [m(x) for m in self.models]
             detached = [o.detach() for o in outputs]
+            sequential = cfg.update_order == "sequential"
 
             # [D-018]: on non-distilling updates every model trains on CE
             # alone and nothing is exchanged.
@@ -414,6 +432,17 @@ class MutualTrainer:
                 self.optimizers[i].zero_grad()
                 loss.backward()
                 self.optimizers[i].step()
+
+                if sequential and comm_active:
+                    # Original DML order: later models distil from model i's
+                    # post-step prediction on this same batch.
+                    with torch.no_grad():
+                        detached[i] = self.models[i](x)
+                    if (cfg.arm == "dml" and cfg.target == "ensemble"
+                            and self.K > 2):
+                        p_new = F.softmax(detached[i] / T, dim=1)
+                        probs_sum = probs_sum - probs[i] + p_new
+                        probs[i] = p_new
 
                 sums["loss"][i] += float(loss.item())
                 sums["ce"][i] += float(ce.item())

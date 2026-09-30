@@ -454,3 +454,83 @@ class TestZombie:
 def test_parse_k_anneal():
     assert parse_k_anneal("") == []
     assert parse_k_anneal("120:1,0:3,60:2") == [(0, 3), (60, 2), (120, 1)]
+
+
+def manual_epoch_sequential(models, loader, teachers, lr=0.05):
+    """Reference: original DML Algorithm 1. Models step in slot order; after
+    model i steps its prediction is recomputed, so later models distil from
+    it."""
+    loss_ce = nn.CrossEntropyLoss()
+    loss_kl = nn.KLDivLoss(reduction="batchmean")
+    opts = [torch.optim.SGD(m.parameters(), lr=lr, momentum=0.9,
+                            weight_decay=5e-4, nesterov=True) for m in models]
+    for m in models:
+        m.train()
+    for x, y in loader:
+        with torch.no_grad():
+            current = [m(x) for m in models]
+        for i, m in enumerate(models):
+            out = m(x)
+            loss = loss_ce(out, y)
+            for j, alpha in teachers[i]:
+                loss = loss + alpha * loss_kl(F.log_softmax(out, dim=1),
+                                              F.softmax(current[j], dim=1))
+            opts[i].zero_grad()
+            loss.backward()
+            opts[i].step()
+            with torch.no_grad():
+                current[i] = m(x)
+
+
+class TestSequentialOrder:
+    def _dense_teachers(self, K):
+        return [[(j, 1.0 / (K - 1)) for j in range(K) if j != i]
+                for i in range(K)]
+
+    def test_dense_matches_algorithm1(self, tmp_path):
+        trainer, slots = make_trainer(tmp_path, K=3, arm="dml",
+                                      update_order="sequential")
+        ref = [copy.deepcopy(s.model) for s in slots]
+        trainer._train_one_epoch(0)
+        manual_epoch_sequential(ref, make_loader(32, seed=10),
+                                self._dense_teachers(3))
+        assert_params_close([s.model for s in slots], ref)
+
+    def test_matched_k1_matches_algorithm1(self, tmp_path):
+        trainer, slots = make_trainer(tmp_path, K=4, arm="matched",
+                                      match_weight="random",
+                                      update_order="sequential")
+        teachers = [[(1, 1.0)], [(0, 1.0)], [(3, 1.0)], [(2, 1.0)]]
+        trainer.teachers = teachers
+        ref = [copy.deepcopy(s.model) for s in slots]
+        trainer._train_one_epoch(0)
+        manual_epoch_sequential(ref, make_loader(32, seed=10), teachers)
+        assert_params_close([s.model for s in slots], ref)
+
+    def test_dmle_sequential_matches_per_peer(self, tmp_path):
+        # The aggregate form keeps its running sum fresh, so it stays
+        # gradient-identical to the per-peer form under sequential order.
+        trainer, slots = make_trainer(tmp_path, K=3, arm="dml",
+                                      target="ensemble",
+                                      update_order="sequential")
+        ref = [copy.deepcopy(s.model) for s in slots]
+        trainer._train_one_epoch(0)
+        manual_epoch_sequential(ref, make_loader(32, seed=10),
+                                self._dense_teachers(3))
+        assert_params_close([s.model for s in slots], ref)
+
+    def test_differs_from_simultaneous(self, tmp_path):
+        seq, s_slots = make_trainer(tmp_path / "a", K=3, arm="dml",
+                                    update_order="sequential")
+        sim, m_slots = make_trainer(tmp_path / "b", K=3, arm="dml")
+        seq._train_one_epoch(0)
+        sim._train_one_epoch(0)
+        # Slot 0 steps first and sees identical targets in both orders
+        # only on the first batch; over an epoch every model diverges.
+        assert any(not torch.allclose(pa, pb)
+                   for pa, pb in zip(s_slots[2].model.parameters(),
+                                     m_slots[2].model.parameters()))
+
+    def test_unknown_order_raises(self, tmp_path):
+        with pytest.raises(ValueError):
+            make_trainer(tmp_path, K=3, arm="dml", update_order="bogus")
