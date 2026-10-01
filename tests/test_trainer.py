@@ -534,3 +534,153 @@ class TestSequentialOrder:
     def test_unknown_order_raises(self, tmp_path):
         with pytest.raises(ValueError):
             make_trainer(tmp_path, K=3, arm="dml", update_order="bogus")
+
+
+def manual_epoch_resampled(models, loader, K, d, seed, lr=0.05):
+    """Reference for the sampled arm with resample='step': before every
+    update each model draws an independent uniform d-subset of peers from the
+    trainer's sampler stream, then a simultaneous step as in manual_epoch."""
+    rng = np.random.default_rng(seed * 100003 + 29)
+    loss_ce = nn.CrossEntropyLoss()
+    loss_kl = nn.KLDivLoss(reduction="batchmean")
+    opts = [torch.optim.SGD(m.parameters(), lr=lr, momentum=0.9,
+                            weight_decay=5e-4, nesterov=True) for m in models]
+    for m in models:
+        m.train()
+    for x, y in loader:
+        teachers = []
+        for i in range(K):
+            peers = [j for j in range(K) if j != i]
+            pick = rng.choice(len(peers), size=d, replace=False)
+            teachers.append([peers[int(t)] for t in sorted(pick)])
+        outs = [m(x) for m in models]
+        det = [o.detach() for o in outs]
+        for i in range(K):
+            loss = loss_ce(outs[i], y)
+            for j in teachers[i]:
+                loss = loss + (1.0 / d) * loss_kl(
+                    F.log_softmax(outs[i], dim=1), F.softmax(det[j], dim=1))
+            opts[i].zero_grad()
+            loss.backward()
+            opts[i].step()
+
+
+class TestSampledArm:
+    def test_step_resampling_matches_manual(self, tmp_path):
+        trainer, slots = make_trainer(tmp_path, K=5, arm="sampled",
+                                      k_matchings=2, resample="step")
+        ref = [copy.deepcopy(s.model) for s in slots]
+        trainer._train_one_epoch(0)
+        manual_epoch_resampled(ref, make_loader(32, seed=10), K=5, d=2,
+                               seed=1)
+        assert_params_close([s.model for s in slots], ref)
+
+    def test_epoch_draw_is_fixed_within_epoch(self, tmp_path):
+        trainer, slots = make_trainer(tmp_path, K=5, arm="sampled",
+                                      k_matchings=2)
+        trainer._draw_uniform_teachers()
+        teachers = [list(t) for t in trainer.teachers]
+        ref = [copy.deepcopy(s.model) for s in slots]
+        trainer._train_one_epoch(0)
+        assert trainer.teachers == teachers
+        manual_epoch(ref, make_loader(32, seed=10), teachers)
+        assert_params_close([s.model for s in slots], ref)
+
+    def test_draw_is_uniform_over_subsets(self, tmp_path):
+        # K=5, d=2: each model has C(4,2)=6 equally likely teacher sets.
+        trainer, _ = make_trainer(tmp_path, K=5, arm="sampled",
+                                  k_matchings=2)
+        counts = {}
+        n = 3000
+        for _ in range(n):
+            trainer._draw_uniform_teachers()
+            key = tuple(j for j, _ in trainer.teachers[0])
+            counts[key] = counts.get(key, 0) + 1
+            assert all(len(t) == 2 and all(a == 0.5 for _, a in t)
+                       and i not in [j for j, _ in t]
+                       for i, t in enumerate(trainer.teachers))
+        assert len(counts) == 6
+        assert all(abs(c / n - 1 / 6) < 0.03 for c in counts.values())
+
+    def test_degree_out_of_range_raises(self, tmp_path):
+        with pytest.raises(ValueError):
+            make_trainer(tmp_path, K=4, arm="sampled", k_matchings=4)
+
+    def test_odd_K_allowed(self, tmp_path):
+        trainer, _ = make_trainer(tmp_path, K=5, arm="sampled",
+                                  k_matchings=1, epochs=1)
+        trainer.train()
+
+    def test_resume_is_bit_identical(self, tmp_path):
+        kw = dict(K=4, arm="sampled", k_matchings=2, resample="step",
+                  checkpoint_every=1)
+        straight, s_slots = make_trainer(tmp_path / "a", epochs=2, **kw)
+        straight.train()
+        first, _ = make_trainer(tmp_path / "b", epochs=1, **kw)
+        first.train()
+        resumed, r_slots = make_trainer(tmp_path / "b", epochs=2,
+                                        resume=True, **kw)
+        resumed.train()
+        assert resumed.start_epoch == 1
+        assert_params_close([s.model for s in r_slots],
+                            [s.model for s in s_slots])
+
+
+def read_probe(tmp_path):
+    with open(os.path.join(str(tmp_path), "test_run_gradprobe.csv")) as fh:
+        return list(csv.DictReader(fh))
+
+
+class TestGradProbe:
+    def test_probe_does_not_change_training(self, tmp_path):
+        kw = dict(K=4, arm="matched", match_weight="random", epochs=2)
+        off, off_slots = make_trainer(tmp_path / "off", **kw)
+        off.train()
+        on, on_slots = make_trainer(tmp_path / "on", grad_probe_every=1,
+                                    **kw)
+        on.train()
+        assert_params_close([s.model for s in on_slots],
+                            [s.model for s in off_slots])
+
+    def test_rows_and_counter(self, tmp_path):
+        trainer, _ = make_trainer(tmp_path, K=4, arm="matched",
+                                  match_weight="random", epochs=2,
+                                  grad_probe_every=2)
+        trainer.train()
+        rows = read_probe(tmp_path)
+        # 32 examples / batch 8 = 4 updates per epoch, probed at 0 and 2.
+        assert [(r["epoch"], r["batch"]) for r in rows] == \
+            [("0", "0"), ("0", "2"), ("1", "0"), ("1", "2")]
+        # Matchings are redrawn each epoch, so the counter restarts.
+        assert [r["updates_since_draw"] for r in rows] == ["0", "2", "0", "2"]
+        assert all(float(r["rel_err"]) > 0 for r in rows)
+
+    def test_dense_and_full_degree_have_zero_error(self, tmp_path):
+        for kw in (dict(arm="dml"),
+                   dict(arm="sampled", k_matchings=3, resample="step")):
+            out = tmp_path / kw["arm"]
+            trainer, _ = make_trainer(out, K=4, epochs=1,
+                                      grad_probe_every=1, **kw)
+            trainer.train()
+            for r in read_probe(out):
+                assert float(r["rel_err"]) < 1e-10
+                assert abs(float(r["cos"]) - 1) < 1e-5
+                assert abs(float(r["pred_rel_var_uniform"])) < 1e-12
+
+    def test_prediction_matches_subset_average(self, tmp_path):
+        # The logged prediction must equal the exact average of rel_err over
+        # all C(K-1, d) teacher subsets at the same probe point.
+        import itertools
+        trainer, slots = make_trainer(tmp_path, K=5, arm="sampled",
+                                      k_matchings=2, grad_probe_every=1)
+        x, _ = next(iter(make_loader(32, seed=10)))
+        outs = [m(x) for m in trainer.models]
+        det = [o.detach() for o in outs]
+        errs = []
+        for subset in itertools.combinations([1, 2, 3, 4], 2):
+            trainer.teachers[0] = [(j, 0.5) for j in subset]
+            trainer.probe_csv = type("W", (), {"write": lambda self, r:
+                                               errs.append(r)})()
+            trainer._grad_probe(0, 0, 0, outs[0], det)
+        avg = np.mean([r["rel_err"] for r in errs])
+        assert abs(avg - errs[0]["pred_rel_var_uniform"]) < 1e-5 * avg
