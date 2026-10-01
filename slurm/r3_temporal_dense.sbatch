@@ -13,8 +13,8 @@
 #       (6/11) x (11/6) = 1 stream per update, exactly.
 #
 # The schedule selects updates 1, 3, 5, 7, 9, 11 of each 11-block (the rule
-# (t*6) % 11 < 6). With 45k training images at batch 128 there are 352
-# batches per epoch and 352 = 32 x 11, so the duty cycle is exactly 6/11 with
+# (t*6) % 11 < 6). With 45k training images at batch 64 there are 704
+# batches per epoch and 704 = 64 x 11, so the duty cycle is exactly 6/11 with
 # no partial block; `comm_duty` in the CSV records the realized fraction.
 #
 # Two arms, both dense-via-aggregate (--target ensemble: what all-reduce
