@@ -11,7 +11,8 @@ Each probe row (one per probed update, model 0) gives
 If teacher sets drawn once per epoch, or peeled matchings, behaved like a
 fresh uniform draw at every step, mean rel_err / mean pred would be ~1 and
 flat across the epoch. Ratios are of means (the ratio of an average error to
-its average prediction), with seed-free bootstrap CIs over probe points.
+its average prediction), with bootstrap CIs that resample teacher draws (an
+epoch for per-epoch arms, a probe for per-update arms), not probe points.
 
     python analysis/r5_probe.py [--dir results/suite/r5_probe]
 """
@@ -41,12 +42,20 @@ def describe(arm: str):
     return arm, -1
 
 
-def ratio_ci(err, pred, rng, n_boot=2000):
-    err, pred = np.asarray(err), np.asarray(pred)
-    r = err.mean() / pred.mean()
-    idx = rng.integers(0, len(err), size=(n_boot, len(err)))
-    boots = err[idx].mean(1) / pred[idx].mean(1)
-    return r, np.percentile(boots, 2.5), np.percentile(boots, 97.5)
+def ratio_ci(g, rng, n_boot=2000):
+    """Ratio of means with a cluster bootstrap over teacher draws.
+
+    Probes that share a teacher draw are not independent: in the per-epoch
+    arms every probe of an epoch uses the same draw, so the cluster is the
+    epoch; in per-update arms each probe has its own draw.
+    """
+    r = g["rel_err"].mean() / g["pred_rel_var_uniform"].mean()
+    clusters = [c for _, c in g.groupby("draw")]
+    err = np.array([c["rel_err"].sum() for c in clusters])
+    pred = np.array([c["pred_rel_var_uniform"].sum() for c in clusters])
+    idx = rng.integers(0, len(clusters), size=(n_boot, len(clusters)))
+    boots = err[idx].sum(1) / pred[idx].sum(1)
+    return r, np.percentile(boots, 2.5), np.percentile(boots, 97.5),         len(clusters)
 
 
 def main():
@@ -69,8 +78,12 @@ def main():
     rows = []
     for arm, g in df.groupby("arm"):
         scheme, d = describe(arm)
-        r, lo, hi = ratio_ci(g["rel_err"], g["pred_rel_var_uniform"], rng)
+        g = g.copy()
+        g["draw"] = (list(zip(g["epoch"], g["batch"])) if arm.endswith("-step")
+                     else list(g["epoch"]))
+        r, lo, hi, n_draws = ratio_ci(g, rng)
         rec = {"scheme": scheme, "d": d, "n_probes": len(g),
+               "n_draws": n_draws,
                "rel_err": g["rel_err"].mean(),
                "pred": g["pred_rel_var_uniform"].mean(),
                "ratio": r, "ratio_lo": lo, "ratio_hi": hi,
@@ -86,13 +99,13 @@ def main():
 
     print(f"Probe points from epoch {args.skip_epochs} on; ratio = mean "
           f"observed / mean predicted (fresh uniform draw), 95% bootstrap CI\n")
-    print(f"{'scheme':<30}{'d':>3}{'n':>6}{'rel_err':>9}{'pred':>8}"
+    print(f"{'scheme':<30}{'d':>3}{'draws':>6}{'rel_err':>9}{'pred':>8}"
           f"{'ratio':>7}  {'95% CI':<15}{'cos':>6}   ratio by time since draw")
     for r in out.itertuples():
         by_time = "  ".join(
             f"{n}={getattr(r, 'ratio_' + n):.2f}"
             for n in BIN_NAMES if getattr(r, 'n_' + n) > 0)
-        print(f"{r.scheme:<30}{r.d:>3}{r.n_probes:>6}{r.rel_err:>9.3f}"
+        print(f"{r.scheme:<30}{r.d:>3}{r.n_draws:>6}{r.rel_err:>9.3f}"
               f"{r.pred:>8.3f}{r.ratio:>7.2f}  [{r.ratio_lo:.2f},{r.ratio_hi:.2f}]"
               f"{'':<2}{r.cos:>6.3f}   {by_time}")
     if args.csv:
