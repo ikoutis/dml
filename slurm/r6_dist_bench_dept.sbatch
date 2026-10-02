@@ -84,6 +84,14 @@ TAG="d021"
 [ "$EPOCHS" -lt 200 ] && TAG="d021-short"
 [ "${NCCL_IB_DISABLE:-0}" = "1" ] && TAG="d021-tcp"
 
+# Two ranks can land on MIG slices of the same physical A100. MIG instances
+# support neither CUDA P2P nor IPC, so NCCL's intra-node paths fail at init
+# ("invalid device ordinal"); route same-node traffic through the network
+# transport instead. NCCL_DEBUG=WARN surfaces any remaining transport error.
+export NCCL_P2P_DISABLE=1
+export NCCL_SHM_DISABLE=1
+export NCCL_DEBUG=${NCCL_DEBUG:-WARN}
+
 export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_PORT=$((29500 + i))
 OUT=results/suite/r6_dist_bench
