@@ -25,6 +25,9 @@
 # different number of GPUs, override on the command line, e.g. for 2-GPU
 # nodes:  sbatch --nodes=6 --ntasks-per-node=2 --gres=gpu:a100:2 <this file>
 # Runtime: the 200-epoch tasks take roughly an hour; the rest a few minutes.
+# Smaller cohort when 3 free nodes are hard to get (K=8 on 2 nodes):
+#   sbatch --nodes=2 --export=ALL,COHORT=resnet32:8 <this file>
+# The straggler stays on rank 5, which exists for any K >= 6.
 # =============================================================================
 
 #SBATCH --job-name=dml_r6
@@ -84,7 +87,7 @@ echo "=== R6 | task=$i | $MODE $STRAG | epochs=$EPOCHS | nodes=$SLURM_JOB_NODELI
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -n 1
 # shellcheck disable=SC2086
 srun --kill-on-bad-exit=1 python -m src.dist_trainer \
-    --cohort resnet32:12 --dataset cifar100 --data_dir data \
+    --cohort "${COHORT:-resnet32:12}" --dataset cifar100 --data_dir data \
     $MODE $STRAG --epochs "$EPOCHS" --seed 1 --num_workers 3 \
     --run_tag "$TAG" --output_dir "$OUT"
 echo "=== done $(date) ==="
