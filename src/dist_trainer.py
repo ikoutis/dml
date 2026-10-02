@@ -344,15 +344,34 @@ def main() -> None:
         raise SystemExit(f"--cohort has {len(archs)} models but "
                          f"WORLD_SIZE={world}")
     use_cuda = args.backend == "nccl"
-    # A task bound to its own GPU (srun --gpus-per-task, or a MIG slice,
-    # of which CUDA exposes one per process) sees exactly one device: cuda:0.
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    if use_cuda and "," in visible:
+        # Slurm may hand every task on a node the node's whole GPU list.
+        # Restrict this process to its own entry BEFORE CUDA initializes:
+        # CUDA exposes only the first MIG slice of a list, and a task's
+        # cgroup may forbid the others, so sharing the list fails at NCCL
+        # init ("invalid device ordinal").
+        entries = visible.split(",")
+        os.environ["CUDA_VISIBLE_DEVICES"] = entries[local % len(entries)]
+        local = 0
+    # A task bound to its own GPU sees exactly one device: cuda:0.
     if use_cuda and torch.cuda.device_count() <= local:
         local = 0
     device = torch.device(f"cuda:{local}" if use_cuda else "cpu")
     if use_cuda:
         torch.cuda.set_device(device)
         torch.backends.cudnn.benchmark = True
-    dist.init_process_group(args.backend, rank=rank, world_size=world)
+    print(f"[rank {rank}] host={os.uname().nodename if hasattr(os, 'uname') else '?'}"
+          f" local={_env_int('SLURM_LOCALID', default=-1)}"
+          f" CUDA_VISIBLE_DEVICES={visible!r}->"
+          f"{os.environ.get('CUDA_VISIBLE_DEVICES', '')!r}"
+          f" device={torch.cuda.get_device_name(device) if use_cuda else 'cpu'}",
+          flush=True)
+    if use_cuda:
+        dist.init_process_group(args.backend, rank=rank, world_size=world,
+                                device_id=device)
+    else:
+        dist.init_process_group(args.backend, rank=rank, world_size=world)
 
     # Identical global seeding on every rank: identical loader order and
     # augmentation. Every rank builds the whole cohort so model i starts from
