@@ -684,3 +684,62 @@ class TestGradProbe:
             trainer._grad_probe(0, 0, 0, outs[0], det)
         avg = np.mean([r["rel_err"] for r in errs])
         assert abs(avg - errs[0]["pred_rel_var_uniform"]) < 1e-5 * avg
+
+
+def manual_epoch_partial(models, loader, teachers, labeled, lr=0.05):
+    """Reference for partial supervision: simultaneous updates; labeled slots
+    minimize CE + KD, unlabeled slots KD only."""
+    loss_ce = nn.CrossEntropyLoss()
+    loss_kl = nn.KLDivLoss(reduction="batchmean")
+    opts = [torch.optim.SGD(m.parameters(), lr=lr, momentum=0.9,
+                            weight_decay=5e-4, nesterov=True) for m in models]
+    for m in models:
+        m.train()
+    for x, y in loader:
+        outs = [m(x) for m in models]
+        det = [o.detach() for o in outs]
+        for i in range(len(models)):
+            kd = sum(alpha * loss_kl(F.log_softmax(outs[i], dim=1),
+                                     F.softmax(det[j], dim=1))
+                     for j, alpha in teachers[i])
+            loss = loss_ce(outs[i], y) + kd if i in labeled else kd
+            opts[i].zero_grad()
+            loss.backward()
+            opts[i].step()
+
+
+class TestPartialSupervision:
+    def test_unlabeled_slot_learns_from_peers_only(self, tmp_path):
+        trainer, slots = make_trainer(tmp_path, K=3, arm="dml",
+                                      labeled_slots="0")
+        ref = [copy.deepcopy(s.model) for s in slots]
+        teachers = [[(j, 0.5) for j in range(3) if j != i] for i in range(3)]
+        trainer._train_one_epoch(0)
+        manual_epoch_partial(ref, make_loader(32, seed=10), teachers, {0})
+        assert_params_close([s.model for s in slots], ref)
+
+    def test_all_slots_listed_equals_default(self, tmp_path):
+        a, a_slots = make_trainer(tmp_path / "a", K=3, arm="dml")
+        b, b_slots = make_trainer(tmp_path / "b", K=3, arm="dml",
+                                  labeled_slots="0,1,2")
+        a._train_one_epoch(0)
+        b._train_one_epoch(0)
+        assert_params_close([s.model for s in a_slots],
+                            [s.model for s in b_slots])
+
+    def test_group_columns_written(self, tmp_path):
+        trainer, _ = make_trainer(tmp_path, K=4, arm="topology", graph="ring",
+                                  labeled_slots="0,1", epochs=1)
+        trainer.train()
+        with open(os.path.join(str(tmp_path), "test_run_metrics.csv")) as fh:
+            row = list(csv.DictReader(fh))[0]
+        assert "avg_test_acc_labeled" in row and "avg_test_acc_unlabeled" in row
+
+    @pytest.mark.parametrize("spec", ["5", "-1", ","])
+    def test_bad_slots_raise(self, tmp_path, spec):
+        with pytest.raises(ValueError):
+            make_trainer(tmp_path, K=3, arm="dml", labeled_slots=spec)
+
+    def test_indep_with_unlabeled_raises(self, tmp_path):
+        with pytest.raises(ValueError):
+            make_trainer(tmp_path, K=3, arm="indep", labeled_slots="0")

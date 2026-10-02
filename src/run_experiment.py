@@ -88,6 +88,10 @@ def build_parser() -> argparse.ArgumentParser:
                         "{run_id}_gradprobe.csv (0 = off; training unchanged)")
     p.add_argument("--grad_probe_model", type=int, default=0,
                    help="cohort slot the gradient probe measures")
+    p.add_argument("--labeled_slots", default="",
+                   help="partial supervision: comma-separated slots that get "
+                        "the labeled loss, e.g. '0,1,2'; the rest learn only "
+                        "from peers ('' = all labeled)")
     # matched-arm knobs
     p.add_argument("--k_matchings", type=int, default=1)
     p.add_argument("--k_anneal", default="",
@@ -149,6 +153,9 @@ def _sched_suffix(args) -> str:
 
 def auto_arm_label(args) -> str:
     label = _base_arm_label(args)
+    if args.labeled_slots.strip():
+        label += "-lab" + "-".join(t.strip() for t in
+                                   args.labeled_slots.split(",") if t.strip())
     if args.update_order == "sequential" and args.arm != "indep":
         label += "-seq"
     return label
@@ -307,6 +314,8 @@ def main() -> None:
         static_row["update_order"] = args.update_order
     if args.arm == "sampled":
         static_row["resample"] = args.resample
+    if args.labeled_slots.strip():
+        static_row["labeled_slots"] = args.labeled_slots
 
     cfg = TrainerConfig(
         run_id=run_id, arm=args.arm, arm_label=arm_label, target=args.target,
@@ -324,7 +333,8 @@ def main() -> None:
         kd_scale=args.kd_scale, comm_accounting=args.comm_accounting,
         update_order=args.update_order, resample=args.resample,
         grad_probe_every=args.grad_probe_every,
-        grad_probe_model=args.grad_probe_model, seed=args.seed, device=device,
+        grad_probe_model=args.grad_probe_model,
+        labeled_slots=args.labeled_slots, seed=args.seed, device=device,
         output_dir=args.output_dir, checkpoint_every=args.checkpoint_every,
         resume=args.resume, verbose=args.verbose, trap_usr1=True,
         static_row=static_row)

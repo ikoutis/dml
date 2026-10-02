@@ -145,6 +145,9 @@ class TrainerConfig:
     # torch.autograd.grad, so training itself is unchanged.
     grad_probe_every: int = 0
     grad_probe_model: int = 0
+    # Partial supervision: comma-separated slots that receive the labeled
+    # loss; every other slot learns only from its teachers. "" = all slots.
+    labeled_slots: str = ""
     # bookkeeping
     seed: int = 1
     device: str = "cuda"
@@ -170,6 +173,16 @@ def parse_k_anneal(spec: str) -> List[Tuple[int, int]]:
         e, k = part.strip().split(":")
         out.append((int(e), int(k)))
     return sorted(out)
+
+
+def parse_slots(spec: str, K: int) -> set:
+    """Labeled slots from '0,1,2'; empty means every slot is labeled."""
+    if not spec.strip():
+        return set(range(K))
+    slots = {int(t) for t in spec.split(",") if t.strip()}
+    if not slots or min(slots) < 0 or max(slots) >= K:
+        raise ValueError(f"labeled_slots '{spec}' out of range for K={K}")
+    return slots
 
 
 class MutualTrainer:
@@ -237,6 +250,10 @@ class MutualTrainer:
         if cfg.grad_probe_every and not 0 <= cfg.grad_probe_model < self.K:
             raise ValueError(f"grad_probe_model {cfg.grad_probe_model} out "
                              f"of range for K={self.K}")
+
+        self.labeled = parse_slots(cfg.labeled_slots, self.K)
+        if len(self.labeled) < self.K and cfg.arm == "indep":
+            raise ValueError("unlabeled slots in an indep cohort never learn")
 
         self.loss_ce = nn.CrossEntropyLoss()
         self.loss_kl = nn.KLDivLoss(reduction="batchmean")
@@ -526,10 +543,14 @@ class MutualTrainer:
                 if probe_now and i == cfg.grad_probe_model:
                     self._grad_probe(epoch, n_batches, i, outputs[i],
                                      detached)
-                loss = ce + kd
-                self.optimizers[i].zero_grad()
-                loss.backward()
-                self.optimizers[i].step()
+                # Partial supervision: an unlabeled slot never sees the
+                # labels, so it learns from its teachers alone (ce is still
+                # logged for monitoring, never trained on).
+                loss = ce + kd if i in self.labeled else kd
+                if loss.requires_grad:
+                    self.optimizers[i].zero_grad()
+                    loss.backward()
+                    self.optimizers[i].step()
 
                 if sequential and comm_active:
                     # Original DML order: later models distil from model i's
@@ -745,6 +766,13 @@ class MutualTrainer:
             for arch in sorted({s.arch for s in self.slots}):
                 idx = [s.index for s in self.slots if s.arch == arch]
                 row[f"avg_test_acc_{arch}"] = float(np.mean(test["accs"][idx]))
+            if len(self.labeled) < self.K:
+                # Partial supervision: the two groups' accuracies. Emitted
+                # only for such runs, like the zombie columns below.
+                lab = sorted(self.labeled)
+                unl = [i for i in range(self.K) if i not in self.labeled]
+                row["avg_test_acc_labeled"] = float(np.mean(test["accs"][lab]))
+                row["avg_test_acc_unlabeled"] = float(np.mean(test["accs"][unl]))
             if cfg.zombie_slot >= 0:
                 # Healthy-only counterparts, comparable to the no-zombie
                 # anchors. The cohort avg/disagreement/rho columns above
