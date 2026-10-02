@@ -344,6 +344,10 @@ def main() -> None:
         raise SystemExit(f"--cohort has {len(archs)} models but "
                          f"WORLD_SIZE={world}")
     use_cuda = args.backend == "nccl"
+    # A task bound to its own GPU (srun --gpus-per-task, or a MIG slice,
+    # of which CUDA exposes one per process) sees exactly one device: cuda:0.
+    if use_cuda and torch.cuda.device_count() <= local:
+        local = 0
     device = torch.device(f"cuda:{local}" if use_cuda else "cpu")
     if use_cuda:
         torch.cuda.set_device(device)
