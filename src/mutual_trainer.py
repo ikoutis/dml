@@ -13,6 +13,12 @@ Arms (dev-communication/experiments.md §1)
   k partners assigned by (peeled) maximum-weight matching on the chosen
   edge-weight signal. k=1 random == Def-KT-style unselective pairing;
   k=1 + disagreement/teachable weights == MWM matched mutual learning.
+* ``sampled`` — uniform teacher sampling, the setting of the paper's
+  sampled-peers proposition: each model independently draws d = k_matchings
+  distinct peers uniformly at random (alpha = 1/d), redrawn once per epoch
+  (``resample='epoch'``) or before every update (``resample='step'``).
+  Unlike peeled matchings, the draw is an exactly uniform d-subset for every
+  d, and it needs neither an even K nor a matcher.
 
 Update rule (declared design decision #1, from knowledge-diffusion
 dev-communication/ideas.md 2026-07-17 notes): SIMULTANEOUS. For every batch,
@@ -63,7 +69,7 @@ from .cohort import Slot
 from .metrics import (CsvWriter, evaluate_cohort, mean_pairwise_disagreement,
                       mean_pairwise_error_correlation)
 
-ARMS = ("indep", "dml", "matched", "topology")
+ARMS = ("indep", "dml", "matched", "topology", "sampled")
 
 
 class _ZombieModel(nn.Module):
@@ -130,6 +136,18 @@ class TrainerConfig:
     # 'sequential' (original DML Algorithm 1: later models in a batch see
     # earlier models' post-step predictions). See the module docstring.
     update_order: str = "simultaneous"
+    # 'sampled' arm only: redraw each model's uniform d-subset once per
+    # epoch or before every update.
+    resample: str = "epoch"
+    # Gradient probe: every `grad_probe_every` distilling updates (0 = off),
+    # compute all K-1 per-peer KD gradients of model `grad_probe_model` and
+    # log how far the gradient actually used is from the dense one. Uses
+    # torch.autograd.grad, so training itself is unchanged.
+    grad_probe_every: int = 0
+    grad_probe_model: int = 0
+    # Partial supervision: comma-separated slots that receive the labeled
+    # loss; every other slot learns only from its teachers. "" = all slots.
+    labeled_slots: str = ""
     # bookkeeping
     seed: int = 1
     device: str = "cuda"
@@ -157,6 +175,16 @@ def parse_k_anneal(spec: str) -> List[Tuple[int, int]]:
     return sorted(out)
 
 
+def parse_slots(spec: str, K: int) -> set:
+    """Labeled slots from '0,1,2'; empty means every slot is labeled."""
+    if not spec.strip():
+        return set(range(K))
+    slots = {int(t) for t in spec.split(",") if t.strip()}
+    if not slots or min(slots) < 0 or max(slots) >= K:
+        raise ValueError(f"labeled_slots '{spec}' out of range for K={K}")
+    return slots
+
+
 class MutualTrainer:
     def __init__(self, cfg: TrainerConfig, slots: List[Slot],
                  train_loader, valid_loader, test_loader,
@@ -165,6 +193,8 @@ class MutualTrainer:
             raise ValueError(f"Unknown arm '{cfg.arm}'. Arms: {ARMS}")
         if cfg.update_order not in ("simultaneous", "sequential"):
             raise ValueError(f"Unknown update_order '{cfg.update_order}'")
+        if cfg.resample not in ("epoch", "step"):
+            raise ValueError(f"Unknown resample '{cfg.resample}'")
         self.cfg = cfg
         self.slots = slots
         self.K = len(slots)
@@ -214,6 +244,17 @@ class MutualTrainer:
                           f"feasibility is no longer guaranteed (Dirac "
                           f"bound) and refresh may raise.", flush=True)
 
+        if cfg.arm == "sampled" and not 1 <= cfg.k_matchings <= self.K - 1:
+            raise ValueError(f"sampled arm: d={cfg.k_matchings} out of range "
+                             f"[1, K-1={self.K - 1}]")
+        if cfg.grad_probe_every and not 0 <= cfg.grad_probe_model < self.K:
+            raise ValueError(f"grad_probe_model {cfg.grad_probe_model} out "
+                             f"of range for K={self.K}")
+
+        self.labeled = parse_slots(cfg.labeled_slots, self.K)
+        if len(self.labeled) < self.K and cfg.arm == "indep":
+            raise ValueError("unlabeled slots in an indep cohort never learn")
+
         self.loss_ce = nn.CrossEntropyLoss()
         self.loss_kl = nn.KLDivLoss(reduction="batchmean")
 
@@ -232,6 +273,11 @@ class MutualTrainer:
         # Matcher machinery. The matcher RNG is separate from the training
         # RNG so arms at equal seed share init and batch order.
         self.match_rng = np.random.default_rng(cfg.seed * 100003 + 17)
+        # Own stream for the sampled arm, for the same reason.
+        self.sample_rng = np.random.default_rng(cfg.seed * 100003 + 29)
+        # Distilling updates since the current teacher sets were drawn
+        # (gradient-probe bookkeeping).
+        self.updates_since_draw = 0
         self.graph_mask = (None if cfg.graph == "complete"
                            else mt.build_graph_mask(cfg.graph, self.K,
                                                     cfg.graph_seed))
@@ -280,6 +326,8 @@ class MutualTrainer:
         base = os.path.join(cfg.output_dir, cfg.run_id)
         self.metrics_csv = CsvWriter(base + "_metrics.csv")
         self.matches_csv = CsvWriter(base + "_matches.csv")
+        self.probe_csv = (CsvWriter(base + "_gradprobe.csv")
+                          if cfg.grad_probe_every else None)
         self.ckpt_path = base + "_ckpt.pt"
         self.start_epoch = 0
         self._preempt_requested = False
@@ -328,6 +376,7 @@ class MutualTrainer:
         matchings = mt.peel_matchings(Wp, k, self.graph_mask)
         self.recency.update(matchings)
         self.current_matchings = matchings
+        self.updates_since_draw = 0
         # Alphas come from the RAW weights (the penalty only steers
         # selection); dense normalization to mass 1 happens inside.
         self.teachers = mt.matchings_to_teachers(matchings, W, self.K,
@@ -349,6 +398,63 @@ class MutualTrainer:
                     "weight_mode": cfg.match_weight, "solver": solver,
                     "k": k,
                 })
+
+    def _draw_uniform_teachers(self) -> None:
+        # Sampled arm: an independent uniform d-subset of peers per model.
+        d = self.cfg.k_matchings
+        teachers = []
+        for i in range(self.K):
+            peers = [j for j in range(self.K) if j != i]
+            pick = self.sample_rng.choice(len(peers), size=d, replace=False)
+            teachers.append([(peers[int(t)], 1.0 / d) for t in sorted(pick)])
+        self.teachers = teachers
+        self.updates_since_draw = 0
+
+    # ------------------------------------------------------------------
+    # Gradient probe
+    # ------------------------------------------------------------------
+    def _grad_probe(self, epoch: int, batch_idx: int, i: int,
+                    logits_i: torch.Tensor, detached: List[torch.Tensor]
+                    ) -> None:
+        # Per-peer KD gradients g_ij for every peer j of model i; the dense
+        # gradient is their mean, the used one the alpha-weighted sum over
+        # model i's current teachers. Relative quantities, so the T^2 and
+        # kd_scale factors cancel.
+        T = self.cfg.kd_T
+        params = [q for q in self.models[i].parameters() if q.requires_grad]
+        log_p = F.log_softmax(logits_i / T, dim=1)
+        peers = [j for j in range(self.K) if j != i]
+        G = []
+        for j in peers:
+            kl = self.loss_kl(log_p, F.softmax(detached[j] / T, dim=1))
+            g = torch.autograd.grad(kl, params, retain_graph=True)
+            G.append(torch.cat([t.reshape(-1) for t in g]))
+        G = torch.stack(G)
+        g_dense = G.mean(dim=0)
+        pos = {j: n for n, j in enumerate(peers)}
+        g_used = torch.zeros_like(g_dense)
+        for j, alpha in self.teachers[i]:
+            g_used += alpha * G[pos[j]]
+        d = len(self.teachers[i])
+        dense_sq = float(g_dense.pow(2).sum())
+        err_sq = float((g_used - g_dense).pow(2).sum())
+        # Trace of the population covariance of the per-peer gradients
+        # (K-1 denominator), and the proposition's prediction for the
+        # expected relative error of a uniform d-subset.
+        tr_sigma = float((G - g_dense).pow(2).sum(dim=1).mean())
+        pred = ((1.0 / d) * (self.K - 1 - d) / (self.K - 2) * tr_sigma
+                / dense_sq) if self.K > 2 and d > 0 else float("nan")
+        cos = float(F.cosine_similarity(g_used, g_dense, dim=0))
+        self.probe_csv.write({
+            "run_id": self.cfg.run_id, "epoch": epoch, "batch": batch_idx,
+            "updates_since_draw": self.updates_since_draw,
+            "model": i, "d": d,
+            "rel_err": err_sq / dense_sq,
+            "cos": cos,
+            "pred_rel_var_uniform": pred,
+            "dense_grad_norm": dense_sq ** 0.5,
+            "used_grad_norm": float(g_used.norm()),
+        })
 
     # ------------------------------------------------------------------
     # Communication schedule ([D-018])
@@ -402,6 +508,12 @@ class MutualTrainer:
             # [D-018]: on non-distilling updates every model trains on CE
             # alone and nothing is exchanged.
             comm_active = self._comm_active(n_batches)
+            if (comm_active and cfg.arm == "sampled"
+                    and cfg.resample == "step"):
+                self._draw_uniform_teachers()
+            probe_now = (cfg.grad_probe_every and comm_active
+                         and cfg.arm != "indep"
+                         and n_batches_comm % cfg.grad_probe_every == 0)
 
             if (comm_active and cfg.arm == "dml"
                     and cfg.target == "ensemble" and self.K > 2):
@@ -428,10 +540,17 @@ class MutualTrainer:
                             F.softmax(detached[j] / T, dim=1)) * (T * T)
                 if comm_active and cfg.kd_scale != 1.0:
                     kd = kd * cfg.kd_scale
-                loss = ce + kd
-                self.optimizers[i].zero_grad()
-                loss.backward()
-                self.optimizers[i].step()
+                if probe_now and i == cfg.grad_probe_model:
+                    self._grad_probe(epoch, n_batches, i, outputs[i],
+                                     detached)
+                # Partial supervision: an unlabeled slot never sees the
+                # labels, so it learns from its teachers alone (ce is still
+                # logged for monitoring, never trained on).
+                loss = ce + kd if i in self.labeled else kd
+                if loss.requires_grad:
+                    self.optimizers[i].zero_grad()
+                    loss.backward()
+                    self.optimizers[i].step()
 
                 if sequential and comm_active:
                     # Original DML order: later models distil from model i's
@@ -452,6 +571,7 @@ class MutualTrainer:
             if comm_active:
                 n_batches_comm += 1
                 n_seen_comm += int(y.size(0))
+                self.updates_since_draw += 1
 
         for key in sums:
             sums[key] = sums[key] / max(n_batches, 1)
@@ -471,6 +591,8 @@ class MutualTrainer:
             return self.K - 1
         if self.cfg.arm == "topology":
             return int(self.graph_degree)
+        if self.cfg.arm == "sampled":
+            return self.cfg.k_matchings
         return len(self.current_matchings)
 
     def _comm_epoch(self, n_seen_comm: int) -> Dict[str, float]:
@@ -510,6 +632,8 @@ class MutualTrainer:
             "py_rng": random.getstate(),
             "np_rng": np.random.get_state(),
             "match_rng": self.match_rng.bit_generator.state,
+            "sample_rng": self.sample_rng.bit_generator.state,
+            "updates_since_draw": self.updates_since_draw,
             "recency": self.recency.state_dict(),
             "teachers": self.teachers,
             "current_matchings": self.current_matchings,
@@ -539,6 +663,10 @@ class MutualTrainer:
         random.setstate(state["py_rng"])
         np.random.set_state(state["np_rng"])
         self.match_rng.bit_generator.state = state["match_rng"]
+        # .get: checkpoints from before the sampled arm lack these keys.
+        if "sample_rng" in state:
+            self.sample_rng.bit_generator.state = state["sample_rng"]
+        self.updates_since_draw = state.get("updates_since_draw", 0)
         self.recency = mt.RecencyState.from_state_dict(state["recency"])
         self.teachers = state["teachers"]
         self.current_matchings = state["current_matchings"]
@@ -548,6 +676,8 @@ class MutualTrainer:
         self.start_epoch = state["epoch"] + 1
         self.metrics_csv.truncate_to_epoch(state["epoch"])
         self.matches_csv.truncate_to_epoch(state["epoch"])
+        if self.probe_csv is not None:
+            self.probe_csv.truncate_to_epoch(state["epoch"])
         if self.cfg.verbose:
             print(f"[*] Resumed from {self.ckpt_path} at epoch "
                   f"{self.start_epoch}")
@@ -579,12 +709,16 @@ class MutualTrainer:
             # duplicate epochs.
             self.metrics_csv.truncate_to_epoch(-1)
             self.matches_csv.truncate_to_epoch(-1)
+            if self.probe_csv is not None:
+                self.probe_csv.truncate_to_epoch(-1)
 
         final = {}
         for epoch in range(self.start_epoch, cfg.epochs):
             tic = time.time()
             if self._refresh_due(epoch):
                 self._refresh_matching(epoch)
+            if self.cfg.arm == "sampled" and self.cfg.resample == "epoch":
+                self._draw_uniform_teachers()
 
             # lr from the first HEALTHY slot; the zombie's optimizer never
             # steps, so its scheduler is skipped (silences the step-order
@@ -632,6 +766,13 @@ class MutualTrainer:
             for arch in sorted({s.arch for s in self.slots}):
                 idx = [s.index for s in self.slots if s.arch == arch]
                 row[f"avg_test_acc_{arch}"] = float(np.mean(test["accs"][idx]))
+            if len(self.labeled) < self.K:
+                # Partial supervision: the two groups' accuracies. Emitted
+                # only for such runs, like the zombie columns below.
+                lab = sorted(self.labeled)
+                unl = [i for i in range(self.K) if i not in self.labeled]
+                row["avg_test_acc_labeled"] = float(np.mean(test["accs"][lab]))
+                row["avg_test_acc_unlabeled"] = float(np.mean(test["accs"][unl]))
             if cfg.zombie_slot >= 0:
                 # Healthy-only counterparts, comparable to the no-zombie
                 # anchors. The cohort avg/disagreement/rho columns above
@@ -685,4 +826,6 @@ class MutualTrainer:
 
         self.metrics_csv.close()
         self.matches_csv.close()
+        if self.probe_csv is not None:
+            self.probe_csv.close()
         return final

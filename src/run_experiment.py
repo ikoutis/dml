@@ -55,7 +55,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cohort", default="resnet32:2",
                    help="e.g. 'resnet32:8' or 'wrn28x10:4,resnet32:4'")
     p.add_argument("--arm", default="dml",
-                   choices=["indep", "dml", "matched", "topology"])
+                   choices=["indep", "dml", "matched", "topology",
+                            "sampled"])
     p.add_argument("--target", default="peers", choices=["peers", "ensemble"],
                    help="dml arm only: 'ensemble' = DML_e (averaged target)")
     p.add_argument("--arm_label", default="",
@@ -78,6 +79,19 @@ def build_parser() -> argparse.ArgumentParser:
                    help="'sequential' = original DML Algorithm 1: models step "
                         "in turn and later models distil from earlier "
                         "models' post-step predictions")
+    p.add_argument("--resample", default="epoch", choices=["epoch", "step"],
+                   help="sampled arm: redraw each model's uniform d-subset "
+                        "(d = --k_matchings) once per epoch or every update")
+    p.add_argument("--grad_probe_every", type=int, default=0,
+                   help="every N distilling updates, log the sampled-vs-"
+                        "dense KD gradient discrepancy of one model to "
+                        "{run_id}_gradprobe.csv (0 = off; training unchanged)")
+    p.add_argument("--grad_probe_model", type=int, default=0,
+                   help="cohort slot the gradient probe measures")
+    p.add_argument("--labeled_slots", default="",
+                   help="partial supervision: comma-separated slots that get "
+                        "the labeled loss, e.g. '0,1,2'; the rest learn only "
+                        "from peers ('' = all labeled)")
     # matched-arm knobs
     p.add_argument("--k_matchings", type=int, default=1)
     p.add_argument("--k_anneal", default="",
@@ -139,6 +153,9 @@ def _sched_suffix(args) -> str:
 
 def auto_arm_label(args) -> str:
     label = _base_arm_label(args)
+    if args.labeled_slots.strip():
+        label += "-lab" + "-".join(t.strip() for t in
+                                   args.labeled_slots.split(",") if t.strip())
     if args.update_order == "sequential" and args.arm != "indep":
         label += "-seq"
     return label
@@ -154,6 +171,10 @@ def _base_arm_label(args) -> str:
     if args.arm == "topology":
         # e.g. topo-ring, topo-prism, topo-rregular3 (':' stripped)
         return "topo-" + args.graph.replace(":", "") + zomb
+    if args.arm == "sampled":
+        # e.g. unif3 (epoch redraw), unif3-step (redraw every update)
+        step = "-step" if args.resample == "step" else ""
+        return f"unif{args.k_matchings}{step}" + zomb + sched
     label = f"{_WEIGHT_CODE[args.match_weight]}{args.k_matchings}"
     if args.match_weight == "teachable" and args.kappa != 1.0:
         label += f"-k{args.kappa:g}"
@@ -210,6 +231,10 @@ def main() -> None:
         parser.error("a communication schedule is meaningless for --arm indep")
     if args.kd_scale <= 0:
         parser.error("--kd_scale must be positive")
+    if args.resample != "epoch" and args.arm != "sampled":
+        parser.error("--resample applies to --arm sampled only")
+    if args.grad_probe_every < 0:
+        parser.error("--grad_probe_every must be >= 0")
     if args.comm_accounting == "allreduce" and args.arm != "dml":
         parser.error("--comm_accounting allreduce describes the aggregate "
                      "dense form; it applies to --arm dml only")
@@ -287,6 +312,10 @@ def main() -> None:
     if args.update_order != "simultaneous":
         # Same reasoning: only sequential runs carry the column.
         static_row["update_order"] = args.update_order
+    if args.arm == "sampled":
+        static_row["resample"] = args.resample
+    if args.labeled_slots.strip():
+        static_row["labeled_slots"] = args.labeled_slots
 
     cfg = TrainerConfig(
         run_id=run_id, arm=args.arm, arm_label=arm_label, target=args.target,
@@ -302,7 +331,10 @@ def main() -> None:
         graph_seed=args.graph_seed, zombie_slot=args.zombie_slot,
         comm_on=args.comm_on, comm_block=args.comm_block,
         kd_scale=args.kd_scale, comm_accounting=args.comm_accounting,
-        update_order=args.update_order, seed=args.seed, device=device,
+        update_order=args.update_order, resample=args.resample,
+        grad_probe_every=args.grad_probe_every,
+        grad_probe_model=args.grad_probe_model,
+        labeled_slots=args.labeled_slots, seed=args.seed, device=device,
         output_dir=args.output_dir, checkpoint_every=args.checkpoint_every,
         resume=args.resume, verbose=args.verbose, trap_usr1=True,
         static_row=static_row)
