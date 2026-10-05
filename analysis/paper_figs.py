@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.matching import build_graph_mask  # noqa: E402
 
-OUT = "paper/figures"
+OUT = os.environ.get("FIG_OUT", "paper/figures")
 os.makedirs(OUT, exist_ok=True)
 plt.rcParams.update({"font.size": 8, "axes.spines.top": False,
                      "axes.spines.right": False, "figure.dpi": 150})
@@ -140,9 +140,9 @@ def fig_damage():
     ax1.errorbar(ds, means, yerr=errs, fmt="o-", color=C["sparse"], lw=1.2,
                  capsize=2, ms=3.5)
     ax1.axhline(0, color="k", lw=0.6, alpha=0.5)
-    ax1.set_xlabel("ring distance from dead model")
+    ax1.set_xlabel("ring distance from broken model")
     ax1.set_ylabel("paired damage (pp)")
-    ax1.set_title("ring damage attenuates after one hop", fontsize=8)
+    ax1.set_title("ring damage is one-hop local", fontsize=8)
 
     # right: dose-response points (chronic) + pulsed
     pts = []  # (dose, damage, sem, label)
@@ -168,9 +168,11 @@ def fig_damage():
         ax2.annotate(lab, xy=(alpha, m), xytext=(4, -3),
                      textcoords="offset points", fontsize=7)
     ax2.axhline(0, color="k", lw=0.6, alpha=0.5)
-    ax2.set_xlabel(r"dead-teacher weight $\alpha$ in victim's KD mix")
+    ax2.set_xlabel(r"broken-teacher weight $\alpha$ in victim's KD mix")
     ax2.set_ylabel("victim damage (pp)")
-    ax2.set_title("chronic dose–response saturates", fontsize=8)
+    # alpha changes with the configuration, so the panel compares
+    # configurations; its title must not read as a within-topology dose sweep.
+    ax2.set_title("neighbor damage by configuration", fontsize=8)
     fig.tight_layout()
     fig.savefig(f"{OUT}/damage.pdf")
 
