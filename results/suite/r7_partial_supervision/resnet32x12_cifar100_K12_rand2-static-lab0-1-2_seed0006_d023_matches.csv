@@ -1,0 +1,13 @@
+run_id,run_tag,epoch,layer,i,j,arch_i,arch_j,weight,penalized_weight,weight_mode,solver,k
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,0,0,11,resnet32,resnet32,0.711129,0.711129,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,0,1,3,resnet32,resnet32,0.639314,0.639314,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,0,2,8,resnet32,resnet32,0.756620,0.756620,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,0,4,6,resnet32,resnet32,0.924458,0.924458,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,0,5,10,resnet32,resnet32,0.727779,0.727779,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,0,7,9,resnet32,resnet32,0.679490,0.679490,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,1,0,3,resnet32,resnet32,0.832496,0.832496,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,1,1,6,resnet32,resnet32,0.623629,0.623629,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,1,2,5,resnet32,resnet32,0.884144,0.884144,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,1,4,9,resnet32,resnet32,0.668888,0.668888,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,1,7,10,resnet32,resnet32,0.521692,0.521692,random,exact,2
+resnet32x12_cifar100_K12_rand2-static-lab0-1-2_seed0006_d023,d023,0,1,8,11,resnet32,resnet32,0.489734,0.489734,random,exact,2
